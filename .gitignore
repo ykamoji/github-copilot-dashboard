@@ -1,0 +1,4 @@
+.env
+copilot_credit_usage.csv
+node_modules
+.next

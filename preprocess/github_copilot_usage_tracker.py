@@ -9,7 +9,7 @@ ROOT = Path(
     "/Users/ykamoji/Library/Application Support/Code/User/workspaceStorage"
 )
 
-OUTPUT = "copilot_credit_usage.csv"
+OUTPUT = "/Users/ykamoji/Documents/copilot_credit_usage.csv"
 
 DETAILS_RE = re.compile(
     r"^(.*?)\s*•\s*([\d.]+)(?:x|\s*credits?)?$",
@@ -28,7 +28,7 @@ for workspace in ROOT.iterdir():
 
     for jsonl_file in chat_sessions.glob("*.jsonl"):
 
-        # if jsonl_file.name != 'f7887958-f60c-458d-b6ac-347bcd2d1612.jsonl': continue
+        # if jsonl_file.name != '7ba6cf4d-a4ea-4d70-bb8b-de7fee2185a4.jsonl': continue
 
         try:
 
@@ -48,11 +48,42 @@ for workspace in ROOT.iterdir():
 
                     try:
                         obj = json.loads(line)
+
+                        ## Request route
+                        if 'requests' in obj['v']:
+                            for request in obj['v']['requests']:
+                                if 'result' in request and 'details' in request['result']:
+                                    result = request['result']
+                                    details = result['details']
+                                    if details:
+                                        # print(details)
+                                        chat_analysis_models.append(details)
+                                        # print(f"session_id : {obj['v']['sessionId']}")
+                                        chat_analysis_sessions.append(obj['v']['sessionId'])
+                                        chat_analysis_elapsed.append(float(result['timings']['totalElapsed'])/1000)
+                                        chat_analysis_input_tokens.append(result['metadata']['promptTokens'])
+                                        chat_analysis_output_tokens.append(result['metadata']['outputTokens'])
+                                        
+                                        thinking_tokens = 0
+                                        if "toolCallRounds" in result['metadata']:
+                                            for toolobj in result['metadata']['toolCallRounds']:
+                                                if "thinking" in toolobj and "tokens" in toolobj["thinking"]:
+                                                    thinking_tokens += toolobj['thinking']["tokens"]
+                                        
+                                        chat_analysis_thinking_tokens.append(thinking_tokens)
+
+                                        if 'modelState' in request and 'completedAt' in request['modelState']:
+                                            completed_at = request['modelState']['completedAt']
+                                            completed_time = datetime.fromtimestamp(completed_at / 1000).strftime("%Y-%m-%d %H:%M:%S")
+                                            chat_analysis_timestamps.append(completed_time)
+
+
+                        ## Chat route
                         if 'details' in obj['v']:
                             details = obj['v']['details']
-                            # print(details)
-                            chat_analysis_models.append(details)
                             if details:
+                                # print(details)
+                                chat_analysis_models.append(details)
                                 # print(f"session_id : {obj['v']['metadata']['sessionId']}")
                                 chat_analysis_sessions.append(obj['v']['metadata']['sessionId'])
                                 chat_analysis_elapsed.append(float(obj['v']['timings']['totalElapsed'])/1000)

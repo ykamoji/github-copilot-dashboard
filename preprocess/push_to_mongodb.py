@@ -9,7 +9,7 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "copilot_usage")
-CSV_FILE = "copilot_credit_usage.csv"
+CSV_FILE = "/Users/ykamoji/Documents/copilot_credit_usage.csv"
 
 if not MONGO_URI or not MONGO_DB:
     raise ValueError("MONGO_URI and MONGO_DB must be set in the environment or .env file.")
@@ -46,14 +46,19 @@ if rows:
         db = client[MONGO_DB]
         collection = db[MONGO_COLLECTION]
 
-        # Clear existing records to avoid duplicates across runs
-        print(f"Clearing collection '{MONGO_COLLECTION}' in database '{MONGO_DB}'...")
-        collection.delete_many({})
-
-        # Insert new records
-        print(f"Inserting {len(rows)} records into collection '{MONGO_COLLECTION}'...")
-        result = collection.insert_many(rows)
-        print(f"Successfully pushed {len(result.inserted_ids)} records to MongoDB.")
+        # Upsert new records based on timestamp and model
+        print(f"Upserting {len(rows)} records into collection '{MONGO_COLLECTION}'...")
+        operations = []
+        for row in rows:
+            filter_query = {
+                "timestamp": row.get("timestamp"),
+                "model": row.get("model")
+            }
+            operations.append(pymongo.UpdateOne(filter_query, {"$set": row}, upsert=True))
+        
+        if operations:
+            result = collection.bulk_write(operations)
+            print(f"Successfully upserted/modified records (Upserted: {result.upserted_count}, Modified: {result.modified_count}).")
     except Exception as e:
         print(f"Failed to push data to MongoDB: {e}")
         raise

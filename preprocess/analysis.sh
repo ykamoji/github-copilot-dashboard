@@ -1,0 +1,2 @@
+conda run -p /Users/ykamoji/anaconda3/envs/ai-news-aggregator python3 /Users/ykamoji/Documents/github-copilot-dashboard/preprocess/github_copilot_usage_tracker.py
+conda run -p /Users/ykamoji/anaconda3/envs/ai-news-aggregator python3 /Users/ykamoji/Documents/github-copilot-dashboard/preprocess/push_to_mongodb.py

@@ -4,6 +4,7 @@ import { use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Dashboard from '../../../components/dashboard/Dashboard';
 import { useAuth } from '../../../components/auth/AuthContext';
+import './page.css';
 
 export default function AdminUserDashboard({ params }: { params: Promise<{ userId: string }> }) {
 
@@ -21,10 +22,10 @@ export default function AdminUserDashboard({ params }: { params: Promise<{ userI
 
   return (
     <div>
-      <div style={{ padding: '16px 24px', background: 'rgba(0,0,0,0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }}>
+      <div className="user-admin-header">
         <button
           onClick={() => router.push('/admin')}
-          style={{ background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', marginRight: '16px' }}
+          className="user-admin-back-btn"
         >
           ← Back to Users
         </button>

@@ -1,0 +1,23 @@
+.user-admin-header {
+  padding: 16px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+}
+
+.user-admin-back-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-right: 16px;
+  transition: all var(--transition-fast);
+  font-weight: 500;
+}
+
+.user-admin-back-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-muted);
+}

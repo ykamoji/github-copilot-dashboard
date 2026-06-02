@@ -140,9 +140,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             {user.role === 'viewer' && (
               <button 
                 onClick={logout}
-                style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'var(--text-main)', padding: '8px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; }}
+                className="header-action-btn"
               >
                 ← Back
               </button>
@@ -154,15 +152,20 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             {user.role === 'admin' && !targetUserId && (
               <button 
                 onClick={() => router.push('/admin')}
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--accent-indigo)', color: 'var(--accent-indigo)', padding: '8px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+                className="header-action-btn"
               >
                 Admin Panel
               </button>
             )}
             <button 
               onClick={logout}
-              style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#fda4af', padding: '8px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+              className="signout-btn"
             >
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
               Sign Out
             </button>
           </div>

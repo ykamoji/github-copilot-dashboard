@@ -22,11 +22,11 @@ This dashboard fills that gap. It extracts your usage data directly from VS Code
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|-----------:|
 | **Frontend** | Next.js 16, React 19, TypeScript |
 | **Charts** | Recharts |
-| **Styling** | Vanilla CSS (glassmorphism dark theme) |
-| **Backend API** | Python Flask |
+| **Styling** | Vanilla CSS (monochrome dark theme with CSS custom properties) |
+| **Backend API** | Python Flask (with Flask-Caching & session-based auth) |
 | **Database** | MongoDB |
 | **Data Extraction** | Python scripts parsing VS Code workspace storage |
 
@@ -34,38 +34,54 @@ This dashboard fills that gap. It extracts your usage data directly from VS Code
 
 ```
 github-copilot-dashboard/
-├── app/                          # Next.js frontend
+├── app/                              # Next.js frontend
+│   ├── admin/                        # Admin routes
+│   │   ├── page.tsx                  # Admin panel entry
+│   │   └── user/[userId]/
+│   │       ├── page.tsx              # Per-user admin dashboard
+│   │       └── page.css
 │   ├── components/
-│   │   ├── charts/               # Visualization components
+│   │   ├── auth/                     # Authentication
+│   │   │   ├── AuthContext.tsx        # React auth context & provider
+│   │   │   ├── LoginPage.tsx         # Landing page with sign-in / sign-up
+│   │   │   └── LoginPage.css
+│   │   ├── admin/                    # Admin components
+│   │   │   ├── AdminDashboard.tsx    # User management table
+│   │   │   └── AdminDashboard.css
+│   │   ├── charts/                   # Visualization components
 │   │   │   ├── CreditsLineChart.tsx
 │   │   │   ├── TokensBarChart.tsx
 │   │   │   ├── ModelPieChart.tsx
 │   │   │   ├── PerformanceScatter.tsx
 │   │   │   └── UsageHeatmap.tsx
-│   │   ├── controls/             # Filter & navigation controls
+│   │   ├── controls/                 # Filter & navigation controls
 │   │   │   ├── Controls.tsx
 │   │   │   └── Controls.css
-│   │   ├── dashboard/            # Main dashboard orchestrator
+│   │   ├── dashboard/                # Main dashboard orchestrator
 │   │   │   └── Dashboard.tsx
-│   │   └── tables/               # Data tables & modals
+│   │   └── tables/                   # Data tables & modals
 │   │       ├── RecordsTable.tsx
 │   │       ├── RecordsTable.css
 │   │       ├── CostModal.tsx
 │   │       └── CostModal.css
 │   ├── utils/
-│   │   └── pricing.ts            # Model pricing dictionary
-│   ├── types.ts                  # Shared TypeScript interfaces
-│   ├── globals.css               # Design tokens & base styles
-│   ├── layout.tsx                # Root layout
-│   └── page.tsx                  # Entry page
+│   │   └── pricing.ts               # Model pricing dictionary
+│   ├── types.ts                      # Shared TypeScript interfaces
+│   ├── globals.css                   # Design tokens & base styles
+│   ├── layout.tsx                    # Root layout
+│   └── page.tsx                      # Entry page (redirects based on auth)
 ├── api/
-│   └── index.py                  # Flask API server
+│   └── index.py                      # Flask API server (auth, caching, CRUD)
 ├── preprocess/
 │   ├── github_copilot_usage_tracker.py   # Extracts usage from VS Code logs
-│   └── push_to_mongodb.py               # Uploads extracted CSV to MongoDB
-├── .env.example                  # Environment variable template
-├── requirements.txt              # Python dependencies
-└── package.json                  # Node.js dependencies
+│   ├── push_to_mongodb.py               # Uploads extracted CSV to MongoDB
+│   ├── seed_demo_data.py                 # Generates realistic demo data
+│   └── migrate_user_id.py               # One-time user_id migration helper
+├── public/
+│   └── images/                       # Landing page background assets
+├── .env.example                      # Environment variable template
+├── requirements.txt                  # Python dependencies
+└── package.json                      # Node.js dependencies
 ```
 
 ## How It Works
@@ -82,21 +98,31 @@ VS Code Workspace Storage
          ▼
 ┌──────────────────────┐
 │  2. Upload to DB     │  preprocess/push_to_mongodb.py
-│  CSV → MongoDB       │  → copilot.dashboard collection
+│  CSV → MongoDB       │  → copilot.<collection>
 └────────┬─────────────┘
          │
          ▼
 ┌──────────────────────┐
-│  3. Serve API        │  api/index.py (Flask :5328)
+│  3. Authenticate     │  api/index.py (Flask :5328)
+│  Register / Login    │  → /api/auth/register, /api/auth/login
+│  Demo mode available │  → /api/auth/demo (read-only viewer)
+└────────┬─────────────┘
+         │
+         ▼
+┌──────────────────────┐
+│  4. Serve API        │  Token-based auth + per-user caching
 │  /api/usage          │  Filters by date, model, session
 │  /api/models         │  Returns distinct model names
+│  /api/admin/users    │  Admin-only: list all users
 └────────┬─────────────┘
          │
          ▼
 ┌──────────────────────┐
-│  4. Render Dashboard │  Next.js frontend (:3000)
+│  5. Render Dashboard │  Next.js frontend (:3000)
 │  Charts, tables,     │  Proxies /api/* → Flask
 │  controls, filters   │
+│  Admin panel for     │
+│  user management     │
 └──────────────────────┘
 ```
 
@@ -133,7 +159,17 @@ Edit `.env` with your MongoDB connection details:
 MONGO_URI=mongodb+srv://<username>:<password>@cluster0.example.mongodb.net/?retryWrites=true&w=majority
 MONGO_DB=copilot
 MONGO_COLLECTION=dashboard
+USER_ID=<your-uuid>
+CSV_FILE=copilot_credit_usage.csv
 ```
+
+| Variable | Description |
+|----------|-------------|
+| `MONGO_URI` | MongoDB connection string |
+| `MONGO_DB` | Database name |
+| `MONGO_COLLECTION` | Collection storing usage records |
+| `USER_ID` | Your unique user identifier (UUID) used when pushing data |
+| `CSV_FILE` | Path to the extracted CSV file |
 
 ### 3. Extract & Load Usage Data
 
@@ -162,6 +198,16 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. Try Demo Mode (Optional)
+
+If you don't have real usage data yet, you can seed the database with realistic demo data and explore the dashboard immediately:
+
+```bash
+python preprocess/seed_demo_data.py
+```
+
+Then click **"View Demo Dashboard"** on the landing page to log in as a read-only demo viewer.
 
 ## License
 

@@ -23,7 +23,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: none;
   border-bottom: 1px solid transparent;
   cursor: pointer;
@@ -213,10 +213,10 @@
 }
 
 .records-table-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 
 .records-table-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.25);
 }

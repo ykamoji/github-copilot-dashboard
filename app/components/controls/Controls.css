@@ -58,7 +58,7 @@
 
 /* ── Inputs ── */
 .input-date {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -81,7 +81,7 @@
 }
 
 .multiselect-trigger {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -117,10 +117,10 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   z-index: 100;
   max-height: 240px;
   overflow-y: auto;
@@ -217,7 +217,7 @@
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 22px;
   transition: background var(--transition-fast), border-color var(--transition-fast);
@@ -259,7 +259,7 @@
 
 .button-group {
   display: flex;
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 3px;
@@ -284,7 +284,7 @@
 }
 
 .button-group .btn-preset:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.05);
   color: var(--text-primary);
 }
 
@@ -301,7 +301,7 @@
 
 .button-group .btn-nav-arrow:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .button-group .btn-nav-label {

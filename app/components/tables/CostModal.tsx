@@ -154,7 +154,6 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
                       sortedSessions.map((session) => (
                         <tr
                           key={session.sessionId}
-                          style={{ background: 'rgba(0, 0, 0, 0.15)' }}
                           className="session-child-row"
                         >
                           <td style={{ paddingLeft: '32px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>

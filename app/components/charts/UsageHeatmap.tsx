@@ -173,10 +173,10 @@ export default function UsageHeatmap({ data }: UsageHeatmapProps) {
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
             <span>Fewer</span>
             <div style={{ display: 'flex', gap: '2px' }}>
-              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '1px', border: '1px solid rgba(255,255,255,0.05)' }} />
-              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.25)', borderRadius: '1px' }} />
-              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.55)', borderRadius: '1px' }} />
-              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.85)', borderRadius: '1px' }} />
+              <span style={{ width: '8px', height: '8px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '1px', border: '1px solid var(--border-subtle)' }} />
+              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.25)', borderRadius: '1px', border: '1px solid var(--border-subtle)' }} />
+              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.55)', borderRadius: '1px', border: '1px solid var(--border-subtle)' }} />
+              <span style={{ width: '8px', height: '8px', background: 'rgba(99, 102, 241, 0.85)', borderRadius: '1px', border: '1px solid var(--border-subtle)' }} />
             </div>
             <span>More</span>
           </div>
@@ -242,7 +242,7 @@ export default function UsageHeatmap({ data }: UsageHeatmapProps) {
                     const count = hourlyGridData[date][hr] || 0;
                     const opacity = count > 0 ? 0.12 + 0.88 * Math.pow(count / maxHourlyCount, 0.45) : 0.03;
                     const cellBg = count > 0 ? `rgba(99, 102, 241, ${opacity})` : 'rgba(255, 255, 255, 0.03)';
-                    const cellBorder = count > 0 ? 'none' : '1px solid rgba(255, 255, 255, 0.04)';
+                    const cellBorder = '1px solid var(--border-subtle)';
 
                     return (
                       <div
@@ -306,7 +306,7 @@ export default function UsageHeatmap({ data }: UsageHeatmapProps) {
                       const dateStr = weekData.dates[dayIdx];
                       const opacity = count > 0 ? 0.12 + 0.88 * Math.pow(count / maxDailyCount, 0.45) : 0.03;
                       const cellBg = count > 0 ? `rgba(99, 102, 241, ${opacity})` : 'rgba(255, 255, 255, 0.03)';
-                      const cellBorder = count > 0 ? 'none' : '1px solid rgba(255, 255, 255, 0.04)';
+                      const cellBorder = '1px solid var(--border-subtle)';
 
                       // If there is no date associated with this cell (e.g. outside filter date range bounds)
                       if (!dateStr) {
@@ -315,8 +315,8 @@ export default function UsageHeatmap({ data }: UsageHeatmapProps) {
                             key={dayIdx}
                             style={{
                               aspectRatio: '1',
-                              background: 'transparent',
-                              border: 'none',
+                              background: 'rgba(255, 255, 255, 0.01)',
+                              border: '1px solid var(--border-subtle)',
                               borderRadius: '2px',
                             }}
                           />

@@ -97,7 +97,10 @@ def usage():
         query = {
             "model": {"$exists": True, "$ne": None, "$ne": ""},
             "timestamp": {"$exists": True, "$ne": None, "$ne": ""},
-            "credits": {"$exists": True, "$ne": None, "$ne": ""},
+            "$or": [
+                {"credits": {"$exists": True, "$ne": None, "$ne": ""}},
+                {"credit_rate": {"$exists": True, "$ne": None, "$ne": ""}},
+            ]
         }
 
         # Model filter
@@ -137,6 +140,7 @@ def usage():
                             "model": "$model",
                         },
                         "credits": {"$push": "$credits"},
+                        "credit_rate": {"$push": "$credit_rate"},
                         "input_tokens": {"$sum": {"$ifNull": ["$input_tokens", 0]}},
                         "output_tokens": {"$sum": {"$ifNull": ["$output_tokens", 0]}},
                         "thinking_tokens": {"$sum": {"$ifNull": ["$thinking_tokens", 0]}},
@@ -156,14 +160,33 @@ def usage():
                 total_absolute = 0.0
                 has_rate = False
                 has_absolute = False
-                for c in r["credits"]:
-                    rate, absolute = parse_credit(c)
-                    if rate is not None:
-                        total_rate += rate
-                        has_rate = True
-                    if absolute is not None:
-                        total_absolute += absolute
-                        has_absolute = True
+
+                # Check credit_rate array
+                if "credit_rate" in r:
+                    for cr in r["credit_rate"]:
+                        if cr is not None and cr != "":
+                            try:
+                                total_rate += float(cr)
+                                has_rate = True
+                            except (ValueError, TypeError):
+                                pass
+
+                # Check credits array
+                if "credits" in r:
+                    for c in r["credits"]:
+                        if c is not None and c != "":
+                            if isinstance(c, str) and c.strip().lower().endswith("x"):
+                                try:
+                                    total_rate += float(c.strip().lower()[:-1])
+                                    has_rate = True
+                                except ValueError:
+                                    pass
+                            else:
+                                try:
+                                    total_absolute += float(c)
+                                    has_absolute = True
+                                except (ValueError, TypeError):
+                                    pass
 
                 data.append({
                     "session_id": r["_id"]["session_id"],
@@ -183,16 +206,33 @@ def usage():
             cursor = collection.find(query, {"_id": 0}).sort("timestamp", 1)
             data = []
             for doc in cursor:
-                rate, absolute = parse_credit(doc.get("credits"))
+                rate = doc.get("credit_rate")
+                absolute = doc.get("credits")
+
+                # If they are legacy (e.g. credits has string value and credit_rate is not set)
+                if rate is None and absolute is not None and isinstance(absolute, str):
+                    rate, absolute = parse_credit(absolute)
+
+                # Ensure correct types are returned to frontend (e.g. tokens/time as numbers)
+                def to_int(v):
+                    if v is None or v == "": return 0
+                    try: return int(float(v))
+                    except: return 0
+
+                def to_float(v):
+                    if v is None or v == "": return 0.0
+                    try: return float(v)
+                    except: return 0.0
+
                 ts = doc.get("timestamp", "")
                 data.append({
                     "model": doc.get("model"),
                     "credit_rate": rate,
                     "credits": absolute,
-                    "input_tokens": doc.get("input_tokens"),
-                    "output_tokens": doc.get("output_tokens"),
-                    "thinking_tokens": doc.get("thinking_tokens"),
-                    "time_taken": doc.get("time_taken"),
+                    "input_tokens": to_int(doc.get("input_tokens")),
+                    "output_tokens": to_int(doc.get("output_tokens")),
+                    "thinking_tokens": to_int(doc.get("thinking_tokens")),
+                    "time_taken": to_float(doc.get("time_taken")),
                     "session_id": doc.get("session_id"),
                     "timestamp": ts,
                     "date": ts[:10] if ts else "",

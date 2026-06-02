@@ -131,9 +131,24 @@ for workspace in ROOT.iterdir():
 
         for i in range(len(chat_analysis_models)):
             record = {}
-            model, credits = chat_analysis_models[i].split(" • ")
+            model, raw_credits = chat_analysis_models[i].split(" • ")
             record["model"] = model
-            record["credits"] = float(credits.replace(" credits", "")) if "credits" in credits else credits
+            
+            raw_credits_str = raw_credits.strip().lower()
+            if raw_credits_str.endswith("x"):
+                try:
+                    record["credit_rate"] = float(raw_credits_str[:-1])
+                except ValueError:
+                    record["credit_rate"] = ""
+                record["credits"] = ""
+            else:
+                cleaned = raw_credits_str.replace(" credits", "")
+                try:
+                    record["credits"] = float(cleaned)
+                except ValueError:
+                    record["credits"] = raw_credits
+                record["credit_rate"] = ""
+
             record["time_taken"] = chat_analysis_elapsed[i]
             if i < len(chat_analysis_timestamps):
                 record["timestamp"] = chat_analysis_timestamps[i]
@@ -145,7 +160,7 @@ for workspace in ROOT.iterdir():
                 record["thinking_tokens"] = chat_analysis_thinking_tokens[i]
             record["workspace"] = workspace.name
             record["file"] = jsonl_file.name
-            if i< len(chat_analysis_sessions):
+            if i < len(chat_analysis_sessions):
                 record["session_id"] = chat_analysis_sessions[i]
             else:
                 record["session_id"] = ""
@@ -172,6 +187,7 @@ with open(
             "timestamp",
             "model",
             "credits",
+            "credit_rate",
             "time_taken",
             "input_tokens",
             "output_tokens",

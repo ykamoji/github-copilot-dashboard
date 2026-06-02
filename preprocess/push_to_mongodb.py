@@ -23,20 +23,46 @@ with open(CSV_FILE, mode='r', encoding='utf-8') as f:
     reader = csv.DictReader(f)
     for row in reader:
         # Convert numeric fields back to their proper types
-        try:
-            if row.get("credits"):
+        if row.get("credits") is not None and row.get("credits") != "":
+            try:
                 row["credits"] = float(row["credits"])
-            if row.get("time_taken"):
+            except ValueError:
+                pass
+        else:
+            row["credits"] = None
+
+        if row.get("credit_rate") is not None and row.get("credit_rate") != "":
+            try:
+                row["credit_rate"] = float(row["credit_rate"])
+            except ValueError:
+                pass
+        else:
+            row["credit_rate"] = None
+
+        if row.get("time_taken") is not None and row.get("time_taken") != "":
+            try:
                 row["time_taken"] = float(row["time_taken"])
-            if row.get("input_tokens"):
+            except ValueError:
+                pass
+
+        if row.get("input_tokens") is not None and row.get("input_tokens") != "":
+            try:
                 row["input_tokens"] = int(row["input_tokens"])
-            if row.get("output_tokens"):
+            except ValueError:
+                pass
+
+        if row.get("output_tokens") is not None and row.get("output_tokens") != "":
+            try:
                 row["output_tokens"] = int(row["output_tokens"])
-            if row.get("thinking_tokens"):
+            except ValueError:
+                pass
+
+        if row.get("thinking_tokens") is not None and row.get("thinking_tokens") != "":
+            try:
                 row["thinking_tokens"] = int(row["thinking_tokens"])
-        except ValueError as ve:
-            # Fallback to raw string if conversion fails
-            pass
+            except ValueError:
+                pass
+
         rows.append(row)
 
 if rows:

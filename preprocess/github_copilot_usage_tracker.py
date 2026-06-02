@@ -28,8 +28,15 @@ def extract_data(request, chat_analysis_models, chat_analysis_elapsed, chat_anal
             if DEBUG: print(details)
             chat_analysis_models.append(details)
             chat_analysis_elapsed.append(float(result['timings']['totalElapsed']) / 1000)
-            chat_analysis_input_tokens.append(result['metadata']['promptTokens'])
-            chat_analysis_output_tokens.append(result['metadata']['outputTokens'])
+            if 'promptTokens' in result['metadata']:
+                chat_analysis_input_tokens.append(result['metadata']['promptTokens'])
+            else:
+                chat_analysis_input_tokens.append(0)
+            if 'outputTokens' in result['metadata']:
+                chat_analysis_output_tokens.append(result['metadata']['outputTokens'])
+            else:
+                chat_analysis_output_tokens.append(0)
+
             thinking_tokens = 0
             if "toolCallRounds" in result['metadata']:
                 for toolobj in result['metadata']['toolCallRounds']:
@@ -42,6 +49,10 @@ def extract_data(request, chat_analysis_models, chat_analysis_elapsed, chat_anal
                 completed_at = request['modelState']['completedAt']
                 completed_time = datetime.fromtimestamp(completed_at / 1000).strftime("%Y-%m-%d %H:%M:%S")
                 chat_analysis_timestamps.append(completed_time)
+            else:
+                chat_analysis_timestamps.append(0)
+            return True
+    return False
 
 
 def extract_chat_data(obj_v):
@@ -51,9 +62,20 @@ def extract_chat_data(obj_v):
         chat_analysis_models.append(details)
         if DEBUG: print(f"session_id : {obj_v['metadata']['sessionId']}")
         chat_analysis_sessions.append(obj_v['metadata']['sessionId'])
-        chat_analysis_elapsed.append(float(obj_v['timings']['totalElapsed']) / 1000)
-        chat_analysis_input_tokens.append(obj_v['metadata']['promptTokens'])
-        chat_analysis_output_tokens.append(obj_v['metadata']['outputTokens'])
+        if 'totalElapsed' in obj_v['timings']:
+            chat_analysis_elapsed.append(float(obj_v['timings']['totalElapsed']) / 1000)
+        else:
+            chat_analysis_elapsed.append(0)
+
+        if 'promptTokens' in obj_v['metadata']:
+            chat_analysis_input_tokens.append(obj_v['metadata']['promptTokens'])
+        else:
+            chat_analysis_input_tokens.append(0)
+
+        if 'outputTokens' in obj_v['metadata']:
+            chat_analysis_output_tokens.append(obj_v['metadata']['outputTokens'])
+        else:
+            chat_analysis_output_tokens.append(0)
 
         thinking_tokens = 0
         if "toolCallRounds" in obj_v['metadata']:
@@ -62,6 +84,7 @@ def extract_chat_data(obj_v):
                     thinking_tokens += toolobj['thinking']["tokens"]
 
         chat_analysis_thinking_tokens.append(thinking_tokens)
+
 
 for workspace in ROOT.iterdir():
 
@@ -72,7 +95,7 @@ for workspace in ROOT.iterdir():
 
     for jsonl_file in chat_sessions.glob("*.jsonl"):
 
-        # if jsonl_file.name != '7ba6cf4d-a4ea-4d70-bb8b-de7fee2185a4.jsonl': continue
+        # if jsonl_file.name != '77f00474-1f2a-4bdf-aab5-281577394744.jsonl': continue
 
         try:
 
@@ -88,7 +111,9 @@ for workspace in ROOT.iterdir():
                 encoding="utf-8"
             ) as f:
 
-                for line_no, line in enumerate(f, 1):
+                json_objs = list(enumerate(f, 1))
+                total_lines = len(json_objs)
+                for line_no, line in json_objs:
 
                     try:
                         obj = json.loads(line)
@@ -96,29 +121,45 @@ for workspace in ROOT.iterdir():
                         ## Request route
                         if type(obj['v']) == list:
                             for obj_v in obj['v']:
-                                if 'sessionId' in obj_v['result']['metadata']:
-                                    if DEBUG: print(f"session_id : {obj_v['result']['metadata']['sessionId']}")
-                                    chat_analysis_sessions.append(obj_v['result']['metadata']['sessionId'])
-                                extract_data(obj_v, chat_analysis_models, chat_analysis_elapsed,
+                                completed = extract_data(obj_v, chat_analysis_models, chat_analysis_elapsed,
                                              chat_analysis_input_tokens, chat_analysis_output_tokens,
                                              chat_analysis_thinking_tokens, chat_analysis_timestamps)
+                                if completed and 'sessionId' in obj_v['result']['metadata']:
+                                    if DEBUG: print(f"session_id : {obj_v['result']['metadata']['sessionId']}")
+                                    chat_analysis_sessions.append(obj_v['result']['metadata']['sessionId'])
                         else:
                             if 'requests' in obj['v']:
-                                if DEBUG : print(f"session_id : {obj['v']['sessionId']}")
-                                chat_analysis_sessions.append(obj['v']['sessionId'])
                                 for request in obj['v']['requests']:
-                                    extract_data(request, chat_analysis_models, chat_analysis_elapsed,
+                                    completed = extract_data(request, chat_analysis_models, chat_analysis_elapsed,
                                                  chat_analysis_input_tokens, chat_analysis_output_tokens,
                                                  chat_analysis_thinking_tokens, chat_analysis_timestamps)
+                                    if DEBUG: print(f"session_id : {obj['v']['sessionId']}")
+                                    if completed: chat_analysis_sessions.append(obj['v']['sessionId'])
 
                         ## Chat route
                         if 'details' in obj['v']:
                             extract_chat_data(obj['v'])
+                            # print(f'{line_no} chat_model')
+                            if 'maxToolCallsExceeded' in obj['v']['metadata']:
+                                max_timestamp = 0
+                                if 'toolCallRounds' in obj['v']['metadata']:
+                                    for tool_response in obj['v']['metadata']['toolCallRounds']:
+                                        if max_timestamp < tool_response['timestamp']:
+                                            max_timestamp = float(tool_response['timestamp'])
+
+                                if max_timestamp == 0:
+                                    chat_analysis_timestamps.append("")
+                                else:
+                                    completed_time = datetime.fromtimestamp(max_timestamp / 1000).strftime(
+                                        "%Y-%m-%d %H:%M:%S")
+                                    chat_analysis_timestamps.append(completed_time)
 
                         if 'completedAt' in obj['v']:
                             completed_at = obj['v']['completedAt']
                             completed_time = datetime.fromtimestamp(completed_at / 1000).strftime("%Y-%m-%d %H:%M:%S")
                             chat_analysis_timestamps.append(completed_time)
+                            # print(f'{line_no} completedAt')
+
                     except Exception:
                         continue
 
@@ -127,7 +168,14 @@ for workspace in ROOT.iterdir():
                 f"Failed reading {jsonl_file}: {e}"
             )
 
-        # assert len(chat_analysis_models) == len(chat_analysis_sessions) == len(chat_analysis_timestamps) == len(chat_analysis_elapsed), print(len(chat_analysis_models),len(chat_analysis_sessions), len(chat_analysis_timestamps), len(chat_analysis_elapsed))
+        assert len(chat_analysis_models) == len(chat_analysis_sessions) == len(chat_analysis_timestamps) \
+               == len(chat_analysis_elapsed) == len(chat_analysis_input_tokens) == len(chat_analysis_output_tokens) \
+               == len(chat_analysis_thinking_tokens), \
+            print(f"Workspace {workspace.name} Session: {jsonl_file.name}\t "
+                f"Models :{len(chat_analysis_models)}, Sessions: {len(chat_analysis_sessions)}, "+
+                  f"TimeStamps: {len(chat_analysis_timestamps)}, Duration: {len(chat_analysis_elapsed)}, "+
+                  f"Input Tokens: {len(chat_analysis_input_tokens)}, "+
+                  f"Output Tokens: {len(chat_analysis_output_tokens)}, Thinking Tokens: {len(chat_analysis_thinking_tokens)}")
 
         for i in range(len(chat_analysis_models)):
             record = {}
@@ -150,20 +198,13 @@ for workspace in ROOT.iterdir():
                 record["credit_rate"] = ""
 
             record["time_taken"] = chat_analysis_elapsed[i]
-            if i < len(chat_analysis_timestamps):
-                record["timestamp"] = chat_analysis_timestamps[i]
-            else:
-                record["timestamp"] = ""
-            if i < len(chat_analysis_input_tokens):
-                record["input_tokens"] = chat_analysis_input_tokens[i]
-                record["output_tokens"] = chat_analysis_output_tokens[i]
-                record["thinking_tokens"] = chat_analysis_thinking_tokens[i]
+            record["timestamp"] = chat_analysis_timestamps[i]
+            record["input_tokens"] = chat_analysis_input_tokens[i]
+            record["output_tokens"] = chat_analysis_output_tokens[i]
+            record["thinking_tokens"] = chat_analysis_thinking_tokens[i]
             record["workspace"] = workspace.name
             record["file"] = jsonl_file.name
-            if i < len(chat_analysis_sessions):
-                record["session_id"] = chat_analysis_sessions[i]
-            else:
-                record["session_id"] = ""
+            record["session_id"] = chat_analysis_sessions[i]
             rows.append(record)     
 
 

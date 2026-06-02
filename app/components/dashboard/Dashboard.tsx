@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../auth/AuthContext';
 import Controls, { formatMonth } from '../controls/Controls';
 import CreditsLineChart from '../charts/CreditsLineChart';
 import TokensBarChart from '../charts/TokensBarChart';
@@ -12,7 +14,10 @@ import RecordsTable from '../tables/RecordsTable';
 import { calculateCost } from '../../utils/pricing';
 import { UsageRecord, formatTokens } from '../../types';
 
-export default function Dashboard() {
+export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
+  const { user, token, logout } = useAuth();
+  const router = useRouter();
+
   /* ── State ── */
   const [allModels, setAllModels] = useState<string[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -30,8 +35,16 @@ export default function Dashboard() {
   /* ── Fetch model list on mount ── */
   useEffect(() => {
     async function fetchModels() {
+      if (!token) return;
       try {
-        const res = await fetch('/api/models');
+        const url = targetUserId ? `/api/models?target_user_id=${targetUserId}` : '/api/models';
+        const res = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          logout();
+          return;
+        }
         const json = await res.json();
         if (json.status === 'success') {
           setAllModels(json.data);
@@ -56,8 +69,15 @@ export default function Dashboard() {
       if (startDate) params.set('start', startDate);
       if (endDate) params.set('end', endDate);
       if (groupBySession) params.set('group_by_session', 'true');
+      if (targetUserId) params.set('target_user_id', targetUserId);
 
-      const res = await fetch(`/api/usage?${params.toString()}`);
+      const res = await fetch(`/api/usage?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        logout();
+        return;
+      }
       const json = await res.json();
 
       if (json.status === 'success') {
@@ -109,9 +129,44 @@ export default function Dashboard() {
   return (
     <div className="dashboard-shell">
       {/* Header */}
-      <header className="dashboard-header">
-        <h1>Copilot Dashboard</h1>
-        <p>AI Credit Usage Analytics</p>
+      <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1>Copilot Dashboard</h1>
+          <p>AI Credit Usage Analytics {targetUserId ? '(Viewing User)' : ''}</p>
+        </div>
+        
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {user.role === 'viewer' && (
+              <button 
+                onClick={logout}
+                style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'var(--text-main)', padding: '8px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; }}
+              >
+                ← Back
+              </button>
+            )}
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>{user.name}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{user.role}</div>
+            </div>
+            {user.role === 'admin' && !targetUserId && (
+              <button 
+                onClick={() => router.push('/admin')}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--accent-indigo)', color: 'var(--accent-indigo)', padding: '8px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+              >
+                Admin Panel
+              </button>
+            )}
+            <button 
+              onClick={logout}
+              style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#fda4af', padding: '8px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Controls */}

@@ -1,9 +1,13 @@
 import os
-from flask import Flask, jsonify, request
+import uuid
+from datetime import datetime, timezone
+from functools import wraps
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
+from flask_caching import Cache
 from pymongo import MongoClient
 from dotenv import load_dotenv
-from flask_caching import Cache
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -16,6 +20,10 @@ cache = Cache(app, config={
     'CACHE_DEFAULT_TIMEOUT': 300  # 5 minutes
 })
 
+def make_user_cache_key(*args, **kwargs):
+    user_id = getattr(g, 'user_id', 'anonymous')
+    return f"{request.path}:{user_id}:{str(request.args)}"
+
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "copilot_usage")
@@ -23,27 +31,34 @@ MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "copilot_usage")
 # Global client for connection pooling
 db_client = None
 
-
-
-def get_collection():
+def get_db():
     global db_client
     if not MONGO_URI or not MONGO_DB:
-        raise ValueError(
-            "MONGO_URI and MONGO_DB must be set in the environment or .env file."
-        )
+        raise ValueError("MONGO_URI and MONGO_DB must be set in the environment or .env file.")
     if db_client is None:
         db_client = MongoClient(MONGO_URI)
-    return db_client[MONGO_DB][MONGO_COLLECTION]
+    return db_client[MONGO_DB]
+
+def get_collection():
+    return get_db()[MONGO_COLLECTION]
+
+def get_users_collection():
+    db = get_db()
+    collection = db["users"]
+    # Ensure email is unique
+    collection.create_index("email", unique=True)
+    return collection
+
+def get_sessions_collection():
+    db = get_db()
+    collection = db["sessions"]
+    # TTL index on created_at (expire after 3600 seconds = 1 hour)
+    collection.create_index("created_at", expireAfterSeconds=3600)
+    return collection
 
 
 def parse_credit(raw):
-    """Return (credit_rate, credits_absolute) from the raw credits field.
-
-    - If the value is a string ending with 'x' (e.g. '0.33x'), it is a rate
-      multiplier.  credit_rate = 0.33, credits_absolute = None.
-    - If the value is already numeric, it is an absolute credit count.
-      credit_rate = None, credits_absolute = <value>.
-    """
+    """Return (credit_rate, credits_absolute) from the raw credits field."""
     if raw is None or raw == "":
         return None, None
     if isinstance(raw, str):
@@ -53,26 +68,209 @@ def parse_credit(raw):
                 return float(cleaned[:-1]), None
             except ValueError:
                 return None, None
-        # Try to parse as a plain number string
         try:
             return None, float(cleaned)
         except ValueError:
             return None, None
-    # Already numeric
     try:
         return None, float(raw)
     except (TypeError, ValueError):
         return None, None
 
 
+# --- Authentication Middleware ---
+
+def require_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({"status": "error", "message": "Missing or invalid authorization header"}), 401
+        
+        token = auth_header.split(" ")[1]
+        session = get_sessions_collection().find_one({"token": token})
+        if not session:
+            return jsonify({"status": "error", "message": "Session expired or invalid"}), 401
+        
+        user = get_users_collection().find_one({"user_id": session["user_id"]})
+        if not user:
+            return jsonify({"status": "error", "message": "User not found"}), 401
+        
+        g.user_id = user["user_id"]
+        g.role = user.get("role", "user")
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# --- Auth Endpoints ---
+
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    data = request.json
+    name = data.get("name")
+    email = data.get("email")
+    password = data.get("password")
+    
+    if not name or not email or not password:
+        return jsonify({"status": "error", "message": "Name, email, and password are required"}), 400
+        
+    users = get_users_collection()
+    if users.find_one({"email": email}):
+        return jsonify({"status": "error", "message": "Email already in use"}), 400
+        
+    user_id = str(uuid.uuid4())
+    password_hash = generate_password_hash(password)
+    
+    # Always set role to "user" on registration
+    new_user = {
+        "user_id": user_id,
+        "name": name,
+        "email": email,
+        "password_hash": password_hash,
+        "role": "user",
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    users.insert_one(new_user)
+    
+    # Auto-login after registration
+    token = str(uuid.uuid4())
+    get_sessions_collection().insert_one({
+        "token": token,
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return jsonify({
+        "status": "success",
+        "token": token,
+        "user": {
+            "user_id": user_id,
+            "name": name,
+            "email": email,
+            "role": "user"
+        }
+    })
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+    
+    if not email or not password:
+        return jsonify({"status": "error", "message": "Email and password are required"}), 400
+        
+    user = get_users_collection().find_one({"email": email})
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"status": "error", "message": "Invalid email or password"}), 401
+        
+    token = str(uuid.uuid4())
+    get_sessions_collection().insert_one({
+        "token": token,
+        "user_id": user["user_id"],
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return jsonify({
+        "status": "success",
+        "token": token,
+        "user": {
+            "user_id": user["user_id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": user.get("role", "user")
+        }
+    })
+
+@app.route("/api/auth/demo", methods=["POST"])
+def demo_login():
+    users = get_users_collection()
+    user = users.find_one({"role": "viewer", "name": "Jake Parolta"})
+    
+    if not user:
+        # Create it if the seed script hasn't run
+        user_id = str(uuid.uuid4())
+        user = {
+            "user_id": user_id,
+            "name": "Jake Parolta",
+            "role": "viewer",
+            "created_at": datetime.now(timezone.utc)
+        }
+        users.insert_one(user)
+    
+    token = str(uuid.uuid4())
+    get_sessions_collection().insert_one({
+        "token": token,
+        "user_id": user["user_id"],
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return jsonify({
+        "status": "success",
+        "token": token,
+        "user": {
+            "user_id": user["user_id"],
+            "name": user["name"],
+            "role": user.get("role", "viewer")
+        }
+    })
+
+@app.route("/api/auth/logout", methods=["POST"])
+@require_auth
+def logout():
+    auth_header = request.headers.get("Authorization")
+    token = auth_header.split(" ")[1]
+    get_sessions_collection().delete_one({"token": token})
+    return jsonify({"status": "success", "message": "Logged out successfully"})
+
+
+@app.route("/api/auth/session", methods=["GET"])
+@require_auth
+def session_info():
+    user = get_users_collection().find_one({"user_id": g.user_id})
+    return jsonify({
+        "status": "success",
+        "user": {
+            "user_id": user["user_id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": user.get("role", "user")
+        }
+    })
+
+
+# --- Admin Endpoints ---
+
+@app.route("/api/admin/users", methods=["GET"])
+@require_auth
+def admin_users():
+    if g.role != "admin":
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
+        
+    users = list(get_users_collection().find({}, {"_id": 0, "password_hash": 0}).sort("created_at", -1))
+    return jsonify({"status": "success", "data": users})
+
+
+# --- Dashboard Endpoints ---
+
 @app.route("/api/models")
-@cache.cached(query_string=True)
+@require_auth
+@cache.cached(query_string=True, key_prefix=make_user_cache_key)
 def models():
-    """Return distinct model names."""
+    """Return distinct model names for the user."""
     try:
         collection = get_collection()
-        model_list = sorted(collection.distinct("model"))
-        # Filter out None / empty
+        target_user_id = g.user_id
+        
+        # Admin can pass ?target_user_id to view someone else's models
+        admin_target = request.args.get("target_user_id")
+        if g.role == "admin" and admin_target:
+            target_user_id = admin_target
+            
+        model_list = sorted(collection.distinct("model", {"user_id": target_user_id}))
         model_list = [m for m in model_list if m]
         return jsonify({"status": "success", "data": model_list})
     except Exception as e:
@@ -80,21 +278,21 @@ def models():
 
 
 @app.route("/api/usage")
-@cache.cached(query_string=True)
+@require_auth
+@cache.cached(query_string=True, key_prefix=make_user_cache_key)
 def usage():
-    """Return usage records with filtering and optional session grouping.
-
-    Query params:
-        models      – comma-separated model names
-        start       – ISO date string YYYY-MM-DD (inclusive)
-        end         – ISO date string YYYY-MM-DD (inclusive)
-        group_by_session – 'true' to aggregate per (session_id, model)
-    """
+    """Return usage records with filtering and optional session grouping."""
     try:
         collection = get_collection()
+        target_user_id = g.user_id
+        
+        admin_target = request.args.get("target_user_id")
+        if g.role == "admin" and admin_target:
+            target_user_id = admin_target
 
-        # --- Build base query (filter out records missing key fields) ---
+        # Build base query
         query = {
+            "user_id": target_user_id,
             "model": {"$exists": True, "$ne": None, "$ne": ""},
             "timestamp": {"$exists": True, "$ne": None, "$ne": ""},
             "$or": [
@@ -118,14 +316,12 @@ def usage():
             if start:
                 date_filter["$gte"] = start
             if end:
-                # Make end inclusive: timestamps are "YYYY-MM-DD HH:MM:SS"
                 date_filter["$lte"] = end + " 23:59:59"
             query["timestamp"] = {**query.get("timestamp", {}), **date_filter}
 
         group_by_session = request.args.get("group_by_session", "false").lower() == "true"
 
         if group_by_session:
-            # Aggregate per (session_id, model), summing credits and tokens
             pipeline = [
                 {"$match": query},
                 {
@@ -155,13 +351,11 @@ def usage():
 
             data = []
             for r in raw_results:
-                # Separate rate vs absolute credits and sum them
                 total_rate = 0.0
                 total_absolute = 0.0
                 has_rate = False
                 has_absolute = False
 
-                # Check credit_rate array
                 if "credit_rate" in r:
                     for cr in r["credit_rate"]:
                         if cr is not None and cr != "":
@@ -171,7 +365,6 @@ def usage():
                             except (ValueError, TypeError):
                                 pass
 
-                # Check credits array
                 if "credits" in r:
                     for c in r["credits"]:
                         if c is not None and c != "":
@@ -202,18 +395,15 @@ def usage():
                 })
 
         else:
-            # Return individual records
             cursor = collection.find(query, {"_id": 0}).sort("timestamp", 1)
             data = []
             for doc in cursor:
                 rate = doc.get("credit_rate")
                 absolute = doc.get("credits")
 
-                # If they are legacy (e.g. credits has string value and credit_rate is not set)
                 if rate is None and absolute is not None and isinstance(absolute, str):
                     rate, absolute = parse_credit(absolute)
 
-                # Ensure correct types are returned to frontend (e.g. tokens/time as numbers)
                 def to_int(v):
                     if v is None or v == "": return 0
                     try: return int(float(v))
@@ -238,23 +428,6 @@ def usage():
                     "date": ts[:10] if ts else "",
                 })
 
-        return jsonify({"status": "success", "data": data})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/credits-per-model")
-@cache.cached(query_string=True)
-def credits_per_model():
-    """Aggregate total credits per model."""
-    try:
-        collection = get_collection()
-        pipeline = [
-            {"$group": {"_id": "$model", "total_credits": {"$sum": "$credits"}}},
-            {"$sort": {"total_credits": -1}},
-        ]
-        results = list(collection.aggregate(pipeline))
-        data = [{"model": r["_id"], "credits": r["total_credits"]} for r in results]
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

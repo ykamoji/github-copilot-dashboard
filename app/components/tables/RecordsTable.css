@@ -1,0 +1,222 @@
+/* ── Records Table (Collapsible) ── */
+.records-table-wrapper {
+  margin-top: 32px;
+  margin-bottom: 32px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.records-table-wrapper:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--border-accent);
+}
+
+.records-table-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: var(--bg-secondary);
+  border: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.records-table-toggle:hover {
+  background: var(--bg-card-hover);
+}
+
+.records-table-toggle[aria-expanded="true"] {
+  border-bottom-color: var(--border-subtle);
+}
+
+.records-table-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.records-chevron {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-indigo);
+  transition: transform var(--transition-base);
+  display: inline-block;
+}
+
+.records-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.records-table-toggle-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.records-table-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-indigo);
+  background: rgba(99, 102, 241, 0.12);
+  padding: 3px 10px;
+  border-radius: 100px;
+  letter-spacing: 0.02em;
+}
+
+.records-table-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Collapse / expand animation */
+.records-table-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.records-table-body.expanded {
+  max-height: 600px;
+}
+
+.records-table-scroll {
+  overflow-y: auto;
+  max-height: 560px;
+}
+
+/* Table itself */
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  table-layout: auto;
+}
+
+.records-table th,
+.records-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.records-table th {
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.sortable-th:hover {
+  color: var(--accent-indigo);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-indicator {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.sort-indicator.muted {
+  opacity: 0.25;
+}
+
+.sort-indicator.active {
+  color: var(--accent-indigo);
+  opacity: 1;
+  font-weight: 700;
+}
+
+.records-table td {
+  color: var(--text-secondary);
+}
+
+.records-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.records-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.records-table .align-right {
+  text-align: right;
+}
+
+.records-table .mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.records-table .cell-timestamp {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.model-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
+  color: var(--accent-violet);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+.records-table .cell-session {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrollbar styling for records table */
+.records-table-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.records-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.records-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.records-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}

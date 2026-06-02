@@ -1,22 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Controls, { formatMonth } from './Controls';
-import CreditsLineChart from './CreditsLineChart';
-import TokensBarChart from './TokensBarChart';
-import CostModal from './CostModal';
-import { calculateCost } from '../utils/pricing';
-
-export interface UsageRecord {
-  model: string;
-  credit_rate: number | null;
-  credits: number | null;
-  input_tokens: number | null;
-  cached_tokens: number | null;
-  output_tokens: number | null;
-  thinking_tokens: number | null;
-  [key: string]: any;
-}
+import Controls, { formatMonth } from '../controls/Controls';
+import CreditsLineChart from '../charts/CreditsLineChart';
+import TokensBarChart from '../charts/TokensBarChart';
+import CostModal from '../tables/CostModal';
+import PerformanceScatter from '../charts/PerformanceScatter';
+import ModelPieChart from '../charts/ModelPieChart';
+import UsageHeatmap from '../charts/UsageHeatmap';
+import RecordsTable from '../tables/RecordsTable';
+import { calculateCost } from '../../utils/pricing';
+import { UsageRecord, formatTokens } from '../../types';
 
 export default function Dashboard() {
   /* ── State ── */
@@ -84,6 +78,23 @@ export default function Dashboard() {
     }
   }, [fetchUsage, allModels]);
 
+  /* ── Auto-toggle credits vs credit rates based on filtered data ── */
+  useEffect(() => {
+    if (data.length > 0) {
+      const hasCredits = data.some(
+        (r) => r.credits !== null && r.credits !== undefined
+      );
+      const hasCreditRates = data.some(
+        (r) => r.credit_rate !== null && r.credit_rate !== undefined
+      );
+      if (hasCredits && !hasCreditRates) {
+        setUseRateCredits(false);
+      } else if (hasCreditRates && !hasCredits) {
+        setUseRateCredits(true);
+      }
+    }
+  }, [data]);
+
   /* ── Derive which models to show in charts ── */
   const activeModels =
     selectedModels.length > 0 ? selectedModels : allModels;
@@ -135,24 +146,26 @@ export default function Dashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '32px' }}>
             <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
               <div className="card-title" style={{ marginBottom: '8px' }}>Total {useRateCredits ? 'Rate Credits' : 'Absolute Credits'}</div>
-              <div className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>{totalCredits.toFixed(2)}</div>
+              <div className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>
+                {totalCredits.toFixed(2)}{useRateCredits ? 'x' : ''}
+              </div>
             </div>
             <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
               <div className="card-title" style={{ marginBottom: '8px' }}>Total Input Tokens</div>
               <div style={{ color: '#6366f1', fontSize: '2.5rem', fontWeight: '800' }}>
-                {totalInput >= 1000 ? (totalInput / 1000).toFixed(1) + 'k' : totalInput}
+                {formatTokens(totalInput)}
               </div>
             </div>
             <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
               <div className="card-title" style={{ marginBottom: '8px' }}>Total Output Tokens</div>
               <div style={{ color: '#06b6d4', fontSize: '2.5rem', fontWeight: '800' }}>
-                {totalOutput >= 1000 ? (totalOutput / 1000).toFixed(1) + 'k' : totalOutput}
+                {formatTokens(totalOutput)}
               </div>
             </div>
             <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
               <div className="card-title" style={{ marginBottom: '8px' }}>Total Thinking Tokens</div>
               <div style={{ color: '#8b5cf6', fontSize: '2.5rem', fontWeight: '800' }}>
-                {totalThinking >= 1000 ? (totalThinking / 1000).toFixed(1) + 'k' : totalThinking}
+                {formatTokens(totalThinking)}
               </div>
             </div>
             <div
@@ -169,6 +182,9 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Individual Records Table */}
+          <RecordsTable data={data} useRateCredits={useRateCredits} />
+
           {/* Charts Grid */}
           <div className="charts-grid">
             <CreditsLineChart
@@ -177,6 +193,23 @@ export default function Dashboard() {
               useRateCredits={useRateCredits}
             />
             <TokensBarChart
+              data={data}
+              models={activeModels}
+            />
+          </div>
+
+          <div className="small-charts-grid">
+            <ModelPieChart
+              data={data}
+              models={activeModels}
+              useRateCredits={useRateCredits}
+            />
+            <UsageHeatmap data={data} />
+          </div>
+
+          {/* Performance Scatter – full width */}
+          <div style={{ marginTop: '24px' }}>
+            <PerformanceScatter
               data={data}
               models={activeModels}
             />

@@ -1,0 +1,360 @@
+/* ── Controls Panel ── */
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.controls-row-top {
+  display: flex;
+  /* justify-content: space-between; */
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+}
+
+.toggles-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+}
+
+.controls-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  width: 100%;
+}
+
+.controls-row-date {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.custom-date-pickers {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* ── Inputs ── */
+.input-date {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+  min-width: 150px;
+}
+
+.input-date:focus {
+  border-color: var(--accent-indigo);
+}
+
+/* ── Custom Multi-Select Dropdown ── */
+.multiselect {
+  position: relative;
+  min-width: 220px;
+}
+
+.multiselect-trigger {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  transition: border-color var(--transition-fast);
+  user-select: none;
+}
+
+.multiselect-trigger:hover,
+.multiselect-trigger.open {
+  border-color: var(--accent-indigo);
+}
+
+.multiselect-trigger .arrow {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.multiselect-trigger.open .arrow {
+  transform: rotate(180deg);
+}
+
+.multiselect-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px 0;
+  animation: dropdownFadeIn 150ms ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.multiselect-option:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+}
+
+.multiselect-option input[type="checkbox"] {
+  accent-color: var(--accent-indigo);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.multiselect-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.multiselect-actions button {
+  background: none;
+  border: none;
+  color: var(--accent-indigo);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 4px;
+  font-family: inherit;
+}
+
+.multiselect-actions button:hover {
+  text-decoration: underline;
+}
+
+/* ── Toggle Switch ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.toggle-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 22px;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.toggle-switch input:checked+.toggle-slider {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-indigo);
+}
+
+.toggle-switch input:checked+.toggle-slider::before {
+  transform: translateX(18px);
+  background: var(--accent-indigo);
+}
+
+/* ── Date Shortcuts & Navigation (Segmented Controls) ── */
+.date-control-group {
+  flex: 0 1 auto;
+}
+
+.date-nav-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.button-group {
+  display: flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+  align-items: center;
+}
+
+.button-group .btn-preset {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: calc(var(--radius-md) - 3px);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.button-group .btn-preset:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.button-group .btn-preset.active {
+  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.button-group .btn-nav-arrow {
+  padding: 6px 10px;
+  color: var(--text-muted);
+}
+
+.button-group .btn-nav-arrow:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.button-group .btn-nav-label {
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  min-width: 110px;
+  justify-content: center;
+  text-align: center;
+}
+
+.button-group .btn-advanced-toggle {
+  color: var(--accent-indigo);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.button-group .btn-advanced-toggle:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-indigo);
+}
+
+.button-group .btn-advanced-toggle.active {
+  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+  color: #fff;
+}
+
+/* Micro-animations */
+.animate-slide-down {
+  animation: slideDown 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .controls-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .multiselect {
+    min-width: unset;
+  }
+}

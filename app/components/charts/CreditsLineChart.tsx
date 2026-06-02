@@ -5,23 +5,7 @@ import {
   Tooltip, Legend, ResponsiveContainer,
   TooltipProps
 } from 'recharts';
-import { getModelColor } from './Controls';
-
-/* ── Custom Tooltip ── */
-function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="custom-tooltip">
-      <div className="label">{label}</div>
-      {payload.map((entry, i) => (
-        <div key={i} className="entry">
-          <span className="dot" style={{ background: entry.color }} />
-          <span>{entry.name}:&nbsp;<strong>{Number(entry.value).toFixed(2)}</strong></span>
-        </div>
-      ))}
-    </div>
-  );
-}
+import { getModelColor } from '../controls/Controls';
 
 interface RecordType {
   model: string;
@@ -76,6 +60,21 @@ export default function CreditsLineChart({ data, models, useRateCredits }: Credi
   // Filter to records that actually have the chosen credit type
   const filtered = data.filter((r) => r[creditField] != null);
   const chartData = pivotByDate(filtered, creditField, models);
+
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="custom-tooltip">
+        <div className="label">{label}</div>
+        {payload.map((entry, i) => (
+          <div key={i} className="entry">
+            <span className="dot" style={{ background: entry.color }} />
+            <span>{entry.name}:&nbsp;<strong>{Number(entry.value).toFixed(2)}{useRateCredits ? 'x' : ''}</strong></span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Determine which models actually appear in the data
   const activeModels = models.filter((m) => chartData.some((row) => row[m] != null));

@@ -95,7 +95,7 @@ for workspace in ROOT.iterdir():
 
     for jsonl_file in chat_sessions.glob("*.jsonl"):
 
-        # if jsonl_file.name != '77f00474-1f2a-4bdf-aab5-281577394744.jsonl': continue
+        # if jsonl_file.name != '85afcf6f-8dd6-4dc3-b2f1-17cefb797f54.jsonl': continue
 
         try:
 
@@ -179,7 +179,7 @@ for workspace in ROOT.iterdir():
 
         for i in range(len(chat_analysis_models)):
             record = {}
-            model, raw_credits = chat_analysis_models[i].split(" • ")
+            model, raw_credits = chat_analysis_models[i].split(" • ") if " • " in chat_analysis_models[i] else (chat_analysis_models[i], '0')
             record["model"] = model
             
             raw_credits_str = raw_credits.strip().lower()

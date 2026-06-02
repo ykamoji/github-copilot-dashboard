@@ -3,13 +3,15 @@ import csv
 import pymongo
 from dotenv import load_dotenv
 
+
 # Load configuration from .env file
 load_dotenv()
 
+USER_ID = os.getenv("USER_ID")
 MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "copilot_usage")
-CSV_FILE = "/Users/ykamoji/Documents/copilot_credit_usage.csv"
+CSV_FILE = os.getenv("CSV_FILE")
 
 if not MONGO_URI or not MONGO_DB:
     raise ValueError("MONGO_URI and MONGO_DB must be set in the environment or .env file.")
@@ -73,12 +75,16 @@ if rows:
         collection = db[MONGO_COLLECTION]
 
         # Upsert new records based on timestamp and model
-        print(f"Upserting {len(rows)} records into collection '{MONGO_COLLECTION}'...")
+        print(f"Upserting {len(rows)} records into collection '{MONGO_COLLECTION}' for user {USER_ID}...")
         operations = []
         for row in rows:
+            # Stamp record with user_id
+            row["user_id"] = USER_ID
+            
             filter_query = {
                 "timestamp": row.get("timestamp"),
-                "model": row.get("model")
+                "model": row.get("model"),
+                "user_id": USER_ID
             }
             operations.append(pymongo.UpdateOne(filter_query, {"$set": row}, upsert=True))
         

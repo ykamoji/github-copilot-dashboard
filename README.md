@@ -13,11 +13,13 @@ This dashboard fills that gap. It extracts your usage data directly from VS Code
 - **Credit & Cost Tracking** — View absolute credits, rate multipliers, and estimated USD cost per model
 - **Multi-Model Analytics** — Filter and compare usage across GPT-4.1, Claude Sonnet 4, Gemini 3.1 Pro, and other supported models
 - **Interactive Charts** — Credits over time, token breakdown bars, model distribution pie charts, performance scatter plots, and usage heatmaps (hourly & daily views)
+- **Budget & Forecasting** — Set a monthly AI credit budget and track your progress through daily, weekly, and monthly milestones with visual progress bars and end-of-month forecasts
 - **Date Navigation** — Shift by week/month, use presets (This Week, This Month, Last 30 Days), or pick custom ranges
 - **Session Grouping** — Toggle to aggregate records by coding session
 - **Smart Credit Toggle** — Automatically switches between absolute credits and rate multipliers based on available data
 - **Detailed Records Table** — Sortable, collapsible table with every individual usage record
 - **Cost Breakdown Modal** — Click-to-expand cost analysis grouped by session and model
+
 
 ## Tech Stack
 
@@ -32,67 +34,64 @@ This dashboard fills that gap. It extracts your usage data directly from VS Code
 
 ## Architecture
 
-```
+```text
 github-copilot-dashboard/
-├── app/                              # Next.js frontend
-│   ├── admin/                        # Admin routes
-│   │   ├── page.tsx                  # Admin panel entry
-│   │   └── user/[userId]/
-│   │       ├── page.tsx              # Per-user admin dashboard
-│   │       └── page.css
-│   ├── components/
-│   │   ├── admin/                    # Admin components
-│   │   │   ├── AdminDashboard.css
-│   │   │   └── AdminDashboard.tsx    # User management table
-│   │   ├── auth/                     # Authentication
-│   │   │   ├── AuthContext.tsx       # React auth context & provider
-│   │   │   ├── LoginPage.css
-│   │   │   └── LoginPage.tsx         # Landing page with sign-in / sign-up
-│   │   ├── charts/                   # Visualization components
-│   │   │   ├── CreditsLineChart.tsx
-│   │   │   ├── ModelPieChart.tsx
-│   │   │   ├── PerformanceScatter.tsx
-│   │   │   ├── TokensBarChart.tsx
-│   │   │   └── UsageHeatmap.tsx
-│   │   ├── controls/                 # Filter & navigation controls
-│   │   │   ├── Controls.css
-│   │   │   ├── Controls.tsx
-│   │   │   └── Dropdown.tsx
-│   │   ├── dashboard/                # Main dashboard orchestrator
-│   │   │   └── Dashboard.tsx
-│   │   └── tables/                   # Data tables & modals
-│   │       ├── costModal/
-│   │       │   ├── CostModal.css
-│   │       │   └── CostModal.tsx
-│   │       └── recordsTable/
-│   │           ├── RecordsTable.css
-│   │           └── RecordsTable.tsx
-│   ├── hooks/
-│   │   └── useFetchWithCache.ts      # Custom caching fetch hook
-│   ├── main/                         # Main user routes
-│   │   └── page.tsx                  # User dashboard entry
-│   ├── profile/
-│   │   └── page.tsx                  # User profile & credentials page
-│   ├── utils/
-│   │   ├── controlHelpers.ts         # Date and UI helpers
-│   │   └── pricing.ts                # Model pricing calculations & map
-│   ├── types.ts                      # Shared TypeScript interfaces
-│   ├── globals.css                   # Design tokens & base styles
-│   ├── layout.tsx                    # Root layout
-│   └── page.tsx                      # Entry page (redirects based on auth)
 ├── api/
-│   └── index.py                      # Flask API server (auth, caching, CRUD)
-├── preprocess/
-│   ├── analysis.sh                   # Analysis script
-│   ├── github_copilot_usage_tracker.py   # Extracts usage from VS Code logs
-│   ├── migrate_user_id.py            # One-time user_id migration helper
-│   ├── push_to_mongodb.py            # Uploads extracted CSV to MongoDB
-│   └── seed_demo_data.py             # Generates realistic demo data
-├── public/
-│   └── images/                       # Landing page background assets
-├── .env.example                      # Environment variable template
-├── package.json                      # Node.js dependencies
-└── requirements.txt                  # Python dependencies
+│   └── index.py                          # Flask API server (auth, caching, CRUD)
+├── app/                                  # Next.js frontend
+│   ├── admin/                            # Admin routes
+│   │   ├── user/[userId]/
+│   │   │   ├── page.css
+│   │   │   └── page.tsx
+│   │   └── page.tsx
+│   ├── components/
+│   │   ├── admin/                        # Admin dashboard UI
+│   │   │   ├── AdminDashboard.tsx
+│   │   │   └── ...
+│   │   ├── auth/                         # Authentication context and UI
+│   │   │   ├── AuthContext.tsx
+│   │   │   └── ...
+│   │   ├── charts/                       # Recharts components (Heatmap, Scatter, etc.)
+│   │   │   ├── UsageHeatmap.tsx
+│   │   │   └── ...
+│   │   ├── controls/                     # UI controls for filtering data
+│   │   │   ├── Controls.tsx
+│   │   │   └── ...
+│   │   ├── dashboard/                    # Dashboard layout, headers, and grids
+│   │   │   ├── Dashboard.tsx
+│   │   │   └── ...
+│   │   └── tables/                       # Usage records and cost modals
+│   │       ├── costModal/
+│   │       │   ├── CostModal.tsx
+│   │       │   └── ...
+│   │       └── recordsTable/
+│   │           ├── RecordsTable.tsx
+│   │           └── ...
+│   ├── hooks/
+│   │   └── useFetchWithCache.ts          # Custom caching fetch hook
+│   ├── main/                             # Main user routes
+│   │   └── page.tsx
+│   ├── profile/
+│   │   └── page.tsx                      # User profile & credentials page
+│   ├── utils/
+│   │   ├── controlHelpers.ts             # Date and UI helpers
+│   │   └── pricing.ts                    # Model pricing calculations & map
+│   ├── globals.css                       # Design tokens & base styles
+│   ├── layout.tsx                        # Root layout
+│   ├── page.module.css                   # NextJS page module styles
+│   ├── page.tsx                          # Entry page (redirects based on auth)
+│   └── types.ts                          # Shared TypeScript interfaces
+├── preprocess/                           # Backend scripts for extraction and DB seeding
+│   ├── github_copilot_usage_tracker.py
+│   └── ...
+├── public/                               # Static assets
+│   └── images/
+│       └── landing-bg.png
+├── AGENTS.md                             # AI Assistant rules
+├── README.md                             # Project documentation
+├── .env.example                          # Env variables template
+├── package.json                          # Node.js dependencies
+└── requirements.txt                      # Python dependencies
 ```
 
 ## How It Works
@@ -151,8 +150,11 @@ VS Code Workspace Storage
 git clone https://github.com/ykamoji/github-copilot-dashboard.git
 cd github-copilot-dashboard
 
+# Use Node.js v24
+nvm use 24
+
 # Frontend dependencies
-npm install
+pnpm install
 
 # Python dependencies
 pip install -r requirements.txt
@@ -205,7 +207,7 @@ python api/index.py
 
 ```bash
 # Terminal 2 — Next.js frontend
-npm run dev
+pnpm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.

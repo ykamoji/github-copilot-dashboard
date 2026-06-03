@@ -41,64 +41,78 @@ This repository follows this structure. Please refer to this structure to unders
 
 ```text
 github-copilot-dashboard/
-├── app/                              # Next.js frontend
-│   ├── admin/                        # Admin routes
-│   │   ├── page.tsx                  # Admin panel entry
-│   │   └── user/[userId]/
-│   │       ├── page.tsx              # Per-user admin dashboard
-│   │       └── page.css
-│   ├── components/
-│   │   ├── admin/                    # Admin components
-│   │   │   ├── AdminDashboard.css
-│   │   │   └── AdminDashboard.tsx    # User management table
-│   │   ├── auth/                     # Authentication
-│   │   │   ├── AuthContext.tsx       # React auth context & provider
-│   │   │   ├── LoginPage.css
-│   │   │   └── LoginPage.tsx         # Landing page with sign-in / sign-up
-│   │   ├── charts/                   # Visualization components
-│   │   │   ├── CreditsLineChart.tsx
-│   │   │   ├── ModelPieChart.tsx
-│   │   │   ├── PerformanceScatter.tsx
-│   │   │   ├── TokensBarChart.tsx
-│   │   │   └── UsageHeatmap.tsx
-│   │   ├── controls/                 # Filter & navigation controls
-│   │   │   ├── Controls.css
-│   │   │   ├── Controls.tsx
-│   │   │   └── Dropdown.tsx
-│   │   ├── dashboard/                # Main dashboard orchestrator
-│   │   │   └── Dashboard.tsx
-│   │   └── tables/                   # Data tables & modals
-│   │       ├── costModal/
-│   │       │   ├── CostModal.css
-│   │       │   └── CostModal.tsx
-│   │       └── recordsTable/
-│   │           ├── RecordsTable.css
-│   │           └── RecordsTable.tsx
-│   ├── hooks/
-│   │   └── useFetchWithCache.ts      # Custom caching fetch hook
-│   ├── main/                         # Main user routes
-│   │   └── page.tsx                  # User dashboard entry
-│   ├── profile/
-│   │   └── page.tsx                  # User profile & credentials page
-│   ├── utils/
-│   │   ├── controlHelpers.ts         # Date and UI helpers
-│   │   └── pricing.ts                # Model pricing calculations & map
-│   ├── types.ts                      # Shared TypeScript interfaces
-│   ├── globals.css                   # Design tokens & base styles
-│   ├── layout.tsx                    # Root layout
-│   └── page.tsx                      # Entry page (redirects based on auth)
 ├── api/
-│   └── index.py                      # Flask API server (auth, caching, CRUD)
-├── preprocess/
-│   ├── analysis.sh                   # Analysis script
-│   ├── github_copilot_usage_tracker.py   # Extracts usage from VS Code logs
-│   ├── migrate_user_id.py            # One-time user_id migration helper
-│   ├── push_to_mongodb.py            # Uploads extracted CSV to MongoDB
-│   └── seed_demo_data.py             # Generates realistic demo data
-├── public/
-│   └── images/                       # Landing page background assets
-├── .env.example                      # Environment variable template
-├── package.json                      # Node.js dependencies
-└── requirements.txt                  # Python dependencies
+│   └── index.py                          # Flask API server (auth, caching, CRUD)
+├── app/                                  # Next.js frontend
+│   ├── admin/                            # Admin routes
+│   │   ├── user/[userId]/
+│   │   │   ├── page.css                  # Per-user admin dashboard styles
+│   │   │   └── page.tsx                  # Per-user admin dashboard
+│   │   └── page.tsx                      # Admin panel entry
+│   ├── components/
+│   │   ├── admin/                        # Admin components
+│   │   │   ├── AdminDashboard.css        # Admin dashboard styles
+│   │   │   └── AdminDashboard.tsx        # User management table
+│   │   ├── auth/                         # Authentication
+│   │   │   ├── AuthContext.tsx           # React auth context & provider
+│   │   │   ├── LoginPage.css             # Landing page styles
+│   │   │   └── LoginPage.tsx             # Landing page with sign-in / sign-up
+│   │   ├── charts/                       # Visualization components
+│   │   │   ├── CreditsLineChart.tsx      # Credit usage over time
+│   │   │   ├── ModelPieChart.tsx         # Model distribution pie chart
+│   │   │   ├── PerformanceScatter.tsx    # Token latency scatter plot
+│   │   │   ├── TokensBarChart.tsx        # Token usage bar chart
+│   │   │   └── UsageHeatmap.tsx          # Activity heatmap
+│   │   ├── controls/                     # Filter & navigation controls
+│   │   │   ├── Controls.css              # Controls panel styles
+│   │   │   ├── Controls.tsx              # Main filter panel
+│   │   │   └── Dropdown.tsx              # Reusable dropdown component
+│   │   ├── dashboard/                    # Main dashboard orchestrator
+│   │   │   ├── ChartsPanel.css           # Charts grid styles
+│   │   │   ├── ChartsPanel.tsx           # Charts grid orchestrator
+│   │   │   ├── CollapsibleSection.css    # Collapsible wrapper styles
+│   │   │   ├── CollapsibleSection.tsx    # Reusable expand/collapse wrapper
+│   │   │   ├── Dashboard.tsx             # Main dashboard orchestrator
+│   │   │   ├── DashboardHeader.css       # Header styles
+│   │   │   ├── DashboardHeader.tsx       # Header with user profile menu
+│   │   │   ├── InsightsRow.css           # Budget & forecast styles
+│   │   │   ├── InsightsRow.tsx           # Budget & forecast metrics
+│   │   │   ├── SummaryBox.css            # Hero tiles styles
+│   │   │   └── SummaryBox.tsx            # Hero tiles for credits/costs
+│   │   └── tables/                       # Data tables & modals
+│   │       ├── costModal/
+│   │       │   ├── CostModal.css         # Cost modal styles
+│   │       │   └── CostModal.tsx         # Detailed cost breakdown modal
+│   │       └── recordsTable/
+│   │           ├── RecordsTable.css      # Usage table styles
+│   │           └── RecordsTable.tsx      # Paginated usage records table
+│   ├── hooks/
+│   │   └── useFetchWithCache.ts          # Custom caching fetch hook
+│   ├── main/                             # Main user routes
+│   │   └── page.tsx                      # User dashboard entry
+│   ├── profile/
+│   │   └── page.tsx                      # User profile & credentials page
+│   ├── utils/
+│   │   ├── controlHelpers.ts             # Date and UI helpers
+│   │   └── pricing.ts                    # Model pricing calculations & map
+│   ├── globals.css                       # Design tokens & base styles
+│   ├── layout.tsx                        # Root layout
+│   ├── page.module.css                   # NextJS page module styles
+│   ├── page.tsx                          # Entry page (redirects based on auth)
+│   └── types.ts                          # Shared TypeScript interfaces
+├── preprocess/                           # Backend / Processing scripts
+│   ├── analysis.sh                       # Analysis shell script
+│   ├── github_copilot_usage_tracker.py   # VS Code logs extractor
+│   ├── migrate_user_id.py                # Database migration helper
+│   ├── push_to_mongodb.py                # MongoDB uploader script
+│   └── seed_demo_data.py                 # Generates demo usage data
+├── public/                               # Static assets
+│   └── images/
+│       └── landing-bg.png                # Landing background asset
+├── AGENTS.md                             # AI Assistant rules
+├── README.md                             # Project documentation
+├── .env.example                          # Env variables template
+├── package.json                          # Node.js dependencies
+└── requirements.txt                      # Python dependencies
 ```
 <!-- END:repo-architecture-rules -->

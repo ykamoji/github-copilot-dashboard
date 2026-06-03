@@ -41,31 +41,41 @@ github-copilot-dashboard/
 │   │       ├── page.tsx              # Per-user admin dashboard
 │   │       └── page.css
 │   ├── components/
-│   │   ├── auth/                     # Authentication
-│   │   │   ├── AuthContext.tsx        # React auth context & provider
-│   │   │   ├── LoginPage.tsx         # Landing page with sign-in / sign-up
-│   │   │   └── LoginPage.css
 │   │   ├── admin/                    # Admin components
-│   │   │   ├── AdminDashboard.tsx    # User management table
-│   │   │   └── AdminDashboard.css
+│   │   │   ├── AdminDashboard.css
+│   │   │   └── AdminDashboard.tsx    # User management table
+│   │   ├── auth/                     # Authentication
+│   │   │   ├── AuthContext.tsx       # React auth context & provider
+│   │   │   ├── LoginPage.css
+│   │   │   └── LoginPage.tsx         # Landing page with sign-in / sign-up
 │   │   ├── charts/                   # Visualization components
 │   │   │   ├── CreditsLineChart.tsx
-│   │   │   ├── TokensBarChart.tsx
 │   │   │   ├── ModelPieChart.tsx
 │   │   │   ├── PerformanceScatter.tsx
+│   │   │   ├── TokensBarChart.tsx
 │   │   │   └── UsageHeatmap.tsx
 │   │   ├── controls/                 # Filter & navigation controls
+│   │   │   ├── Controls.css
 │   │   │   ├── Controls.tsx
-│   │   │   └── Controls.css
+│   │   │   └── Dropdown.tsx
 │   │   ├── dashboard/                # Main dashboard orchestrator
 │   │   │   └── Dashboard.tsx
 │   │   └── tables/                   # Data tables & modals
-│   │       ├── RecordsTable.tsx
-│   │       ├── RecordsTable.css
-│   │       ├── CostModal.tsx
-│   │       └── CostModal.css
+│   │       ├── costModal/
+│   │       │   ├── CostModal.css
+│   │       │   └── CostModal.tsx
+│   │       └── recordsTable/
+│   │           ├── RecordsTable.css
+│   │           └── RecordsTable.tsx
+│   ├── hooks/
+│   │   └── useFetchWithCache.ts      # Custom caching fetch hook
+│   ├── main/                         # Main user routes
+│   │   └── page.tsx                  # User dashboard entry
+│   ├── profile/
+│   │   └── page.tsx                  # User profile & credentials page
 │   ├── utils/
-│   │   └── pricing.ts               # Model pricing dictionary
+│   │   ├── controlHelpers.ts         # Date and UI helpers
+│   │   └── pricing.ts                # Model pricing calculations & map
 │   ├── types.ts                      # Shared TypeScript interfaces
 │   ├── globals.css                   # Design tokens & base styles
 │   ├── layout.tsx                    # Root layout
@@ -73,15 +83,16 @@ github-copilot-dashboard/
 ├── api/
 │   └── index.py                      # Flask API server (auth, caching, CRUD)
 ├── preprocess/
+│   ├── analysis.sh                   # Analysis script
 │   ├── github_copilot_usage_tracker.py   # Extracts usage from VS Code logs
-│   ├── push_to_mongodb.py               # Uploads extracted CSV to MongoDB
-│   ├── seed_demo_data.py                 # Generates realistic demo data
-│   └── migrate_user_id.py               # One-time user_id migration helper
+│   ├── migrate_user_id.py            # One-time user_id migration helper
+│   ├── push_to_mongodb.py            # Uploads extracted CSV to MongoDB
+│   └── seed_demo_data.py             # Generates realistic demo data
 ├── public/
 │   └── images/                       # Landing page background assets
 ├── .env.example                      # Environment variable template
-├── requirements.txt                  # Python dependencies
-└── package.json                      # Node.js dependencies
+├── package.json                      # Node.js dependencies
+└── requirements.txt                  # Python dependencies
 ```
 
 ## How It Works

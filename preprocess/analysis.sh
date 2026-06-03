@@ -2,7 +2,7 @@
 LOG_FILE="/Users/ykamoji/Documents/copilot-analysis.log"
 (
     # Give VS Code time to flush Copilot chat data
-    sleep 10
+    sleep 20
     echo ""
     echo ""
     echo ""

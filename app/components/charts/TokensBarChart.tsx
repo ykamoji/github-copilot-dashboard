@@ -19,7 +19,8 @@ const TOKEN_LABELS: Record<string, string> = {
 };
 
 /* ── Custom Tooltip ── */
-function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="custom-tooltip">

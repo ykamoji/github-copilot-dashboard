@@ -117,7 +117,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--bg-card);
+  background: var(--bg-card-hover);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -167,13 +167,12 @@
   display: flex;
   justify-content: space-between;
   padding: 6px 12px;
-  border-top: 1px solid var(--border-subtle);
 }
 
 .multiselect-actions button {
   background: none;
   border: none;
-  color: var(--accent-indigo);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 600;
@@ -272,7 +271,7 @@
   border: none;
   color: var(--text-secondary);
   padding: 6px 14px;
-  border-radius: calc(var(--radius-md) - 3px);
+  border-radius: calc(var(--radius-md) - 3px) !important;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;

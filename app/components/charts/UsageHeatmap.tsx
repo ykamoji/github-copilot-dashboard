@@ -32,14 +32,14 @@ const formatDate = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
-const formatDateLabel = (dateStr: string) => {
+const formatDateLabel = (dateStr: string, showEndDate = true) => {
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const [, month, day] = parts;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthIdx = parseInt(month, 10) - 1;
-  const nextMondayDay = parseInt(day) + 6;
-  return `${months[monthIdx]} ${day} - ${nextMondayDay}`;
+  const nextMondayDay = String(parseInt(day) + 6).padStart(2, '0');
+  return `${months[monthIdx]} ${day}${showEndDate ? ` - ${nextMondayDay}` : ''}`;
 };
 
 const formatFullDate = (dateStr: string) => {
@@ -236,7 +236,7 @@ export default function UsageHeatmap({ data }: UsageHeatmapProps) {
               {sortedHourlyDates.map((date) => (
                 <div key={date} style={{ display: 'grid', gridTemplateColumns: '70px repeat(24, 1fr)', gap: '3px', alignItems: 'center' }}>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                    {formatDateLabel(date)}
+                    {formatDateLabel(date, false)}
                   </div>
                   {Array(24).fill(0).map((_, hr) => {
                     const count = hourlyGridData[date][hr] || 0;
@@ -370,7 +370,7 @@ export default function UsageHeatmap({ data }: UsageHeatmapProps) {
           {viewType === 'hourly' ? (
             <>
               <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                {formatDateLabel(hoveredCell.date)}
+                {formatDateLabel(hoveredCell.date, false)}
               </div>
               <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '2px' }}>
                 {hoveredCell.hour !== undefined ? formatFullHour(hoveredCell.hour) : ''}

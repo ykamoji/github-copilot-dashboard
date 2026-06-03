@@ -1,6 +1,7 @@
 export interface ModelPricing {
   input: number;       // $ per 1M tokens
   cachedInput: number; // $ per 1M tokens
+  cachedOutput?: number; // $ per 1M tokens
   output: number;      // $ per 1M tokens
 }
 
@@ -23,31 +24,60 @@ export const PRICING_MAP: Record<string, ModelPricing> = {
   'GPT-4o': { input: 2.50, cachedInput: 1.25, output: 10.00 }, // Fallback estimate
 
   // Anthropic
-  'Claude Haiku 4.5': { input: 1.00, cachedInput: 0.10, output: 5.00 },
-  'Claude Sonnet 4': { input: 3.00, cachedInput: 0.30, output: 15.00 },
-  'Claude Sonnet 4.5': { input: 3.00, cachedInput: 0.30, output: 15.00 },
-  'Claude Sonnet 4.6': { input: 3.00, cachedInput: 0.30, output: 15.00 },
-  'Claude Opus 4.5': { input: 5.00, cachedInput: 0.50, output: 25.00 },
-  'Claude Opus 4.6': { input: 5.00, cachedInput: 0.50, output: 25.00 },
-  'Claude Opus 4.7': { input: 5.00, cachedInput: 0.50, output: 25.00 },
-  'Claude Opus 4.8': { input: 5.00, cachedInput: 0.50, output: 25.00 },
+  'Claude Haiku 4.5': { input: 1.00, cachedInput: 0.10, cachedOutput: 1.25, output: 5.00 },
+  'Claude Sonnet 4': { input: 3.00, cachedInput: 0.30, cachedOutput: 3.75, output: 15.00 },
+  'Claude Sonnet 4.5': { input: 3.00, cachedInput: 0.30, cachedOutput: 3.75, output: 15.00 },
+  'Claude Sonnet 4.6': { input: 3.00, cachedInput: 0.30, cachedOutput: 3.75, output: 15.00 },
+  'Claude Opus 4.5': { input: 5.00, cachedInput: 0.50, cachedOutput: 6.25, output: 25.00 },
+  'Claude Opus 4.6': { input: 5.00, cachedInput: 0.50, cachedOutput: 6.25, output: 25.00 },
+  'Claude Opus 4.7': { input: 5.00, cachedInput: 0.50, cachedOutput: 6.25, output: 25.00 },
+  'Claude Opus 4.8': { input: 5.00, cachedInput: 0.50, cachedOutput: 6.25, output: 25.00 },
 
   // Google
   'Gemini 2.5 Pro': { input: 1.25, cachedInput: 0.125, output: 10.00 },
-  'Gemini 3 Flash': { input: 0.50, cachedInput: 0.05, output: 3.00 },
+  'Gemini 3 Flash (Preview)': { input: 0.50, cachedInput: 0.05, output: 3.00 },
   'Gemini 3.1 Pro': { input: 2.00, cachedInput: 0.20, output: 12.00 },
   'Gemini 3.5 Flash': { input: 1.50, cachedInput: 0.15, output: 9.00 },
   'Gemini 1.5 Pro': { input: 1.25, cachedInput: 0.125, output: 10.00 }, // Fallback estimate
 };
 
-export function calculateCost(model: string, inputTokens: number, cachedTokens: number, outputTokens: number, thinkingTokens: number): number {
+export function calculateDetailedCosts(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  thinkingTokens: number,
+  credits: number,
+  useRateCredits: boolean,
+) {
   const pricing = PRICING_MAP[model];
-  if (!pricing) return 0; // Unknown model cost
+  if (!pricing) {
+    return { inputCost: 0, outputCost: 0, cachedCost: 0, totalCost: 0 };
+  }
 
-  const inputCost = (inputTokens / 1_000_000) * pricing.input;
-  const cachedCost = (cachedTokens / 1_000_000) * pricing.cachedInput;
-  const outputTokensTotal = outputTokens + thinkingTokens; // thinking tokens priced as output
-  const outputCost = (outputTokensTotal / 1_000_000) * pricing.output;
+  let iCost = (inputTokens / 1_000_000) * pricing.input;
+  const oCost = ((outputTokens + thinkingTokens) / 1_000_000) * pricing.output;
 
-  return inputCost + cachedCost + outputCost;
+  let total = 0;
+  let cCost = 0;
+
+  if (useRateCredits) {
+    total = iCost + oCost;
+    cCost = 0;
+  } else {
+    total = credits * 0.01;
+    cCost = total - iCost - oCost;
+
+    if (cCost < 0) {
+      const overestimation = -cCost;
+      const priceDiff = pricing.input - pricing.cachedInput;
+      if (priceDiff > 0) {
+        const actualCachedCost = (overestimation / priceDiff) * pricing.cachedInput;
+        const actualInputCost = (total - oCost) - actualCachedCost;
+        iCost = actualInputCost;
+        cCost = actualCachedCost;
+      }
+    }
+  }
+
+  return { inputCost: iCost, outputCost: oCost, cachedCost: cCost, totalCost: total };
 }

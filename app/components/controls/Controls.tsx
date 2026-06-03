@@ -1,89 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useFetchWithCache } from '@/hooks/useFetchWithCache';
+import Dropdown from './Dropdown';
 import './Controls.css';
+import {
+  formatDate,
+  getThisWeek,
+  getThisMonth,
+  getLast30Days,
+  parseLocalDate,
+  getMonthLabel,
+  getWeekLabel,
+  getMonthOptions,
+  getWeekOptionsForMonth
+} from '../../utils/controlHelpers';
 
-/* ── Color palette for models ── */
-const MODEL_COLORS = [
-  '#6366f1', '#06b6d4', '#8b5cf6', '#10b981',
-  '#f59e0b', '#f43f5e', '#0ea5e9', '#d946ef', '#84cc16',
-];
-
-export function getModelColor(index: number): string {
-  return MODEL_COLORS[index % MODEL_COLORS.length];
-}
-
-/* ── Helpers ── */
-export function formatMonth(): { start: string; end: string } {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return { start: `${y}-${m}-01`, end: `${y}-${m}-${String(new Date(y, now.getMonth() + 1, 0).getDate()).padStart(2, '0')}` };
-}
-
-/* ── Types ── */
-interface MultiSelectProps {
-  label: string;
-  options: string[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-}
-
-/* ── Multi-select Dropdown ── */
-function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const toggle = (val: string) => {
-    onChange(
-      selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]
-    );
-  };
-
-  const displayText =
-    selected.length === 0 || selected.length === options.length
-      ? 'All Models'
-      : selected.length <= 2
-        ? selected.join(', ')
-        : `${selected.length} selected`;
-
-  return (
-    <div className="control-group">
-      <label>{label}</label>
-      <div className="multiselect" ref={ref}>
-        <div
-          className={`multiselect-trigger ${open ? 'open' : ''}`}
-          onClick={() => setOpen(!open)}
-        >
-          <span>{displayText}</span>
-          <span className="arrow">▼</span>
-        </div>
-        {open && (
-          <div className="multiselect-dropdown">
-            {options.map((opt) => (
-              <div key={opt} className="multiselect-option" onClick={() => toggle(opt)}>
-                <input type="checkbox" checked={selected.includes(opt)} readOnly />
-                <span>{opt}</span>
-              </div>
-            ))}
-            <div className="multiselect-actions">
-              <button onClick={() => onChange([...options])}>Select All</button>
-              <button onClick={() => onChange([])}>Clear</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* ── Types ── */
 interface ToggleProps {
@@ -106,165 +38,205 @@ function Toggle({ label, checked, onChange, id }: ToggleProps) {
   );
 }
 
-/* ── Types ── */
-interface ControlsProps {
-  models: string[];
+export interface DashboardFilters {
   selectedModels: string[];
-  onModelsChange: (selected: string[]) => void;
   startDate: string;
   endDate: string;
-  onStartChange: (date: string) => void;
-  onEndChange: (date: string) => void;
   groupBySession: boolean;
-  onGroupBySessionChange: (group: boolean) => void;
   useRateCredits: boolean;
-  onCreditTypeChange: (useRate: boolean) => void;
 }
 
-/* ── Main Controls Component ── */
-function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+interface ControlsProps {
+  models: string[];
+  filters: DashboardFilters;
+  onFilterChange: (updates: Partial<DashboardFilters>) => void;
+  targetUserId?: string;
+  refreshKey?: number;
 }
 
-const getThisWeek = () => {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const start = new Date(now.setDate(diff));
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  return { start: formatDate(start), end: formatDate(end) };
-};
-
-const getThisMonth = () => {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { start: formatDate(start), end: formatDate(end) };
-};
-
-const getLast30Days = () => {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - 30);
-  return { start: formatDate(start), end: formatDate(end) };
-};
-
-const parseLocalDate = (dateStr: string): Date => {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const getMonthLabel = (dateStr: string) => {
-  if (!dateStr) return 'Month';
-  const d = parseLocalDate(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-};
-
-const getWeekLabel = (dateStr: string) => {
-  if (!dateStr) return 'Week';
-  const d = parseLocalDate(dateStr);
-  const day = d.getDay();
-  const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
-
-  const monday = new Date(d.getFullYear(), d.getMonth(), diffToMonday);
-  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
-
-  const formatMMDD = (date: Date) => {
-    const dd = String(date.getDate()).padStart(2, '0');
-    return `${dd}`;
-  };
-
-  return `${formatMMDD(monday)} - ${formatMMDD(sunday)}`;
-};
 
 /* ── Main Controls Component ── */
 export default function Controls({
   models,
-  selectedModels,
-  onModelsChange,
-  startDate,
-  endDate,
-  onStartChange,
-  onEndChange,
-  groupBySession,
-  onGroupBySessionChange,
-  useRateCredits,
-  onCreditTypeChange,
+  filters,
+  onFilterChange,
+  targetUserId,
+  refreshKey,
 }: ControlsProps) {
   const [showAdvanced, setShowAdvanced] = useState(() => {
     const w = getThisWeek();
     const m = getThisMonth();
     const l = getLast30Days();
-    const isPreset = (startDate === w.start && endDate === w.end) ||
-      (startDate === m.start && endDate === m.end) ||
-      (startDate === l.start && endDate === l.end);
+    const isPreset = (filters.startDate === w.start && filters.endDate === w.end) ||
+      (filters.startDate === m.start && filters.endDate === m.end) ||
+      (filters.startDate === l.start && filters.endDate === l.end);
     return !isPreset;
   });
 
-  const shiftDays = (days: number) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    start.setDate(start.getDate() + days);
-    end.setDate(end.getDate() + days);
-    onStartChange(formatDate(start));
-    onEndChange(formatDate(end));
-  };
+  const [monthOptions, setMonthOptions] = useState<{label: string, value: string}[]>([]);
+  const fetchWithCache = useFetchWithCache();
 
-  const shiftMonths = (months: number) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    const isMonthAligned = start.getDate() === 1 &&
-      new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate() === end.getDate();
-
-    if (isMonthAligned) {
-      const newStart = new Date(start.getFullYear(), start.getMonth() + months, 1);
-      const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 1, 0);
-      onStartChange(formatDate(newStart));
-      onEndChange(formatDate(newEnd));
-    } else {
-      start.setMonth(start.getMonth() + months);
-      end.setMonth(end.getMonth() + months);
-      onStartChange(formatDate(start));
-      onEndChange(formatDate(end));
+  useEffect(() => {
+    async function fetchMonths() {
+      try {
+        const url = targetUserId ? `/api/available-months?target_user_id=${targetUserId}` : '/api/available-months';
+        const json = await fetchWithCache(url);
+        if (json && json.status === 'success' && json.data && json.data.length > 0) {
+          const fetchedOptions = json.data.map((m: string) => {
+            const d = parseLocalDate(m + '-01');
+            return {
+              label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+              value: m
+            };
+          });
+          setMonthOptions(fetchedOptions);
+        } else {
+          setMonthOptions(getMonthOptions());
+        }
+      } catch (err) {
+        console.error('Failed to fetch available months', err);
+        setMonthOptions(getMonthOptions());
+      }
     }
+    fetchMonths();
+  }, [targetUserId, fetchWithCache, refreshKey]);
+
+  const [selectedMonths, setSelectedMonths] = useState<string[]>(() => {
+    const start = new Date(filters.startDate);
+    const end = new Date(filters.endDate);
+
+    const isStartFirst = start.getDate() === 1;
+    const isEndLast = end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+
+    if (isStartFirst && isEndLast) {
+      const selected = [];
+      let current = new Date(start);
+      while (current <= end) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, '0');
+        selected.push(`${y}-${m}`);
+        current.setDate(1);
+        current.setMonth(current.getMonth() + 1);
+      }
+      return selected;
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (selectedMonths.length === 0) return;
+    const sorted = [...selectedMonths].sort();
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+
+    const [fy, fm] = first.split('-');
+    const monthBoundStart = new Date(Number(fy), Number(fm) - 1, 1);
+
+    const [ly, lm] = last.split('-');
+    const monthBoundEnd = new Date(Number(ly), Number(lm), 0);
+
+    const currentStart = parseLocalDate(filters.startDate);
+    const currentEnd = parseLocalDate(filters.endDate);
+
+    // If the date range is within the selected month(s), keep the selection
+    // (this happens when picking a week within the month)
+    if (currentStart >= monthBoundStart && currentEnd <= monthBoundEnd) {
+      return;
+    }
+
+    // Dates changed to something outside the selected months — re-derive
+    const start = new Date(filters.startDate);
+    const end = new Date(filters.endDate);
+    const isStartFirst = start.getDate() === 1;
+    const isEndLast = end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+
+    if (isStartFirst && isEndLast) {
+      const selected = [];
+      let current = new Date(start);
+      while (current <= end) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, '0');
+        selected.push(`${y}-${m}`);
+        current.setDate(1);
+        current.setMonth(current.getMonth() + 1);
+      }
+      setSelectedMonths(selected.filter(s => monthOptions.some(o => o.value === s)));
+    } else {
+      setSelectedMonths([]);
+    }
+  }, [filters.startDate, filters.endDate, monthOptions]);
+
+  const handleMonthsChange = (months: string[]) => {
+    setSelectedMonths(months);
+    if (months.length === 0) {
+      const m = getThisMonth();
+      onFilterChange({ startDate: m.start, endDate: m.end });
+      return;
+    }
+    const sorted = [...months].sort();
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+
+    const [fy, fm] = first.split('-');
+    const start = new Date(Number(fy), Number(fm) - 1, 1);
+
+    const [ly, lm] = last.split('-');
+    const end = new Date(Number(ly), Number(lm), 0);
+
+    onFilterChange({ startDate: formatDate(start), endDate: formatDate(end) });
   };
+
+  const monthDisplayText = selectedMonths.length === 0
+    ? 'Month'
+    : selectedMonths.length === 1
+      ? getMonthLabel(selectedMonths[0] + '-01')
+      : selectedMonths.length === monthOptions.length
+        ? 'All Months'
+        : `${selectedMonths.length} Months`;
+
+  const weekOptions = selectedMonths.length === 1 ? getWeekOptionsForMonth(selectedMonths[0]) : [];
 
   const thisWeek = getThisWeek();
   const thisMonth = getThisMonth();
   const last30 = getLast30Days();
 
-  const isThisWeekActive = startDate === thisWeek.start && endDate === thisWeek.end;
-  const isThisMonthActive = startDate === thisMonth.start && endDate === thisMonth.end;
-  const isLast30DaysActive = startDate === last30.start && endDate === last30.end;
+  const isThisWeekActive = filters.startDate === thisWeek.start && filters.endDate === thisWeek.end;
+  const isThisMonthActive = filters.startDate === thisMonth.start && filters.endDate === thisMonth.end;
+  const isLast30DaysActive = filters.startDate === last30.start && filters.endDate === last30.end;
 
   return (
     <div className="card controls-panel">
       {/* Top Row: Models selector on left, Toggles on right */}
       <div className="controls-row-top">
-        <MultiSelect
-          label="Models"
-          options={models}
-          selected={selectedModels}
-          onChange={onModelsChange}
-        />
+        <div className="control-group">
+          <label>Models</label>
+          <Dropdown
+            mode="multi"
+            displayText={
+              filters.selectedModels.length === 0 || filters.selectedModels.length === models.length
+                ? 'All Models'
+                : filters.selectedModels.length <= 2
+                  ? filters.selectedModels.join(', ')
+                  : `${filters.selectedModels.length} selected`
+            }
+            options={models.map((m) => ({ label: m, value: m }))}
+            selected={filters.selectedModels}
+            onChange={(selected) => onFilterChange({ selectedModels: selected })}
+          />
+        </div>
 
         <div className="toggles-group">
           <Toggle
             id="toggle-session"
             label="Group by Session"
-            checked={groupBySession}
-            onChange={onGroupBySessionChange}
+            checked={filters.groupBySession}
+            onChange={(checked) => onFilterChange({ groupBySession: checked })}
           />
           <Toggle
             id="toggle-credit-type"
-            label={useRateCredits ? 'Rate Credits (×)' : 'Absolute Credits'}
-            checked={useRateCredits}
-            onChange={onCreditTypeChange}
+            label={filters.useRateCredits ? 'Rate Credits (×)' : 'Absolute Credits'}
+            checked={filters.useRateCredits}
+            onChange={(checked) => onFilterChange({ useRateCredits: checked })}
           />
         </div>
       </div>
@@ -279,48 +251,49 @@ export default function Controls({
           <div className="date-nav-preset-row">
             {/* Month Navigation */}
             <div className="button-group">
-              <button className="btn-preset btn-nav-arrow" onClick={() => shiftMonths(-1)} title="Previous Month">◀</button>
-              <button className="btn-preset btn-nav-label" style={{ pointerEvents: 'none', color: 'var(--text-muted)' }}>
-                {getMonthLabel(startDate)}
-              </button>
-              <button className="btn-preset btn-nav-arrow" onClick={() => shiftMonths(1)} title="Next Month">▶</button>
+              <Dropdown
+                mode="multi"
+                variant="compact"
+                allowMultiToggle
+                displayText={monthDisplayText}
+                options={monthOptions}
+                selected={selectedMonths}
+                onChange={handleMonthsChange}
+              />
             </div>
 
             {/* Week Navigation */}
-            <div className="button-group">
-              <button className="btn-preset btn-nav-arrow" onClick={() => shiftDays(-7)} title="Previous Week">◀</button>
-              <button className="btn-preset btn-nav-label" style={{ pointerEvents: 'none', color: 'var(--text-muted)' }}>
-                {getWeekLabel(startDate)}
-              </button>
-              <button className="btn-preset btn-nav-arrow" onClick={() => shiftDays(7)} title="Next Week">▶</button>
+            <div className="button-group" style={{ opacity: selectedMonths.length === 1 ? 1 : 0.5, pointerEvents: selectedMonths.length === 1 ? 'auto' : 'none' }}>
+              <Dropdown
+                mode="single"
+                variant="compact"
+                displayText={getWeekLabel(filters.startDate, filters.endDate)}
+                options={weekOptions}
+                selected={`${filters.startDate}|${filters.endDate}`}
+                onChange={(val) => {
+                  const [startStr, endStr] = val.split('|');
+                  onFilterChange({ startDate: startStr, endDate: endStr });
+                }}
+              />
             </div>
 
             {/* Presets Segment */}
             <div className="button-group">
               <button
                 className={`btn-preset ${isThisWeekActive ? 'active' : ''}`}
-                onClick={() => {
-                  onStartChange(thisWeek.start);
-                  onEndChange(thisWeek.end);
-                }}
+                onClick={() => onFilterChange({ startDate: thisWeek.start, endDate: thisWeek.end })}
               >
                 This Week
               </button>
               <button
                 className={`btn-preset ${isThisMonthActive ? 'active' : ''}`}
-                onClick={() => {
-                  onStartChange(thisMonth.start);
-                  onEndChange(thisMonth.end);
-                }}
+                onClick={() => onFilterChange({ startDate: thisMonth.start, endDate: thisMonth.end })}
               >
                 This Month
               </button>
               <button
                 className={`btn-preset ${isLast30DaysActive ? 'active' : ''}`}
-                onClick={() => {
-                  onStartChange(last30.start);
-                  onEndChange(last30.end);
-                }}
+                onClick={() => onFilterChange({ startDate: last30.start, endDate: last30.end })}
               >
                 Last 30 Days
               </button>
@@ -341,8 +314,8 @@ export default function Controls({
               <input
                 type="date"
                 className="input-date"
-                value={startDate}
-                onChange={(e) => onStartChange(e.target.value)}
+                value={filters.startDate}
+                onChange={(e) => onFilterChange({ startDate: e.target.value })}
               />
             </div>
 
@@ -351,8 +324,8 @@ export default function Controls({
               <input
                 type="date"
                 className="input-date"
-                value={endDate}
-                onChange={(e) => onEndChange(e.target.value)}
+                value={filters.endDate}
+                onChange={(e) => onFilterChange({ endDate: e.target.value })}
               />
             </div>
           </div>

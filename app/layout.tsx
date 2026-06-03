@@ -1,5 +1,5 @@
 import "./globals.css";
-import { AuthProvider } from "./components/auth/AuthContext";
+import { AuthProvider } from "@/components/auth/AuthContext";
 
 export const metadata = {
   title: "Copilot Dashboard — AI Credit Usage Analytics",

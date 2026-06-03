@@ -5,7 +5,7 @@ import './InsightsRow.css';
 
 /* ── Shared pure helpers ── */
 function budgetPct(used: number, budget: number) {
-  return Math.min((used / budget) * 100, 100);
+  return (used / budget) * 100;
 }
 
 function budgetColor(pct: number): string {

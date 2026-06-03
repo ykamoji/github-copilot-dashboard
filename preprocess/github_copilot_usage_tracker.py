@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # Load configuration from .env file
 load_dotenv()
 
-ROOT = os.getenv("STORAGE_PATH")
+ROOT = Path(os.getenv("STORAGE_PATH"))
 OUTPUT = os.getenv("CSV_FILE")
 DETAILS_RE = re.compile(
     r"^(.*?)\s*•\s*([\d.]+)(?:x|\s*credits?)?$",

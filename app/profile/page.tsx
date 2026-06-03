@@ -8,7 +8,7 @@ import '../globals.css';
 export default function ProfilePage() {
   const router = useRouter();
   const { user, token, login } = useAuth();
-  
+
   const [budget, setBudget] = useState<string>(user?.ai_token_budget?.toString() || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -58,9 +58,9 @@ export default function ProfilePage() {
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         login(token!, json.user);
-        setMessage({ type: 'success', text: 'Profile updated successfully.' });
         setPassword('');
         setConfirmPassword('');
+        setMessage({ type: 'success', text: 'Profile updated successfully.' });
       } else {
         setMessage({ type: 'error', text: json.message || 'Failed to update profile.' });
       }
@@ -68,6 +68,7 @@ export default function ProfilePage() {
       setMessage({ type: 'error', text: 'An unexpected error occurred.' });
     } finally {
       setIsSaving(false);
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -85,14 +86,14 @@ export default function ProfilePage() {
           ← Back to Dashboard
         </button>
       </header>
-      
+
       <main style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        
+
         {/* Profile Info Section */}
-        <section style={{ 
-          background: 'var(--bg-card)', 
-          border: '1px solid var(--border-color)', 
-          borderRadius: '12px', 
+        <section style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
           padding: '28px',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -102,22 +103,22 @@ export default function ProfilePage() {
           <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '8px' }}>
             <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 500 }}>Personal Information</h2>
           </div>
-          
+
           <div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Name</div>
             <div style={{ fontSize: '1.05rem', fontWeight: '500', color: 'var(--text-color)' }}>{user.name}</div>
           </div>
-          
+
           <div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Role</div>
             <div style={{ fontSize: '1.05rem', fontWeight: '500', color: 'var(--accent-emerald)', textTransform: 'capitalize' }}>{user.role}</div>
           </div>
-          
+
           <div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Email Address</div>
             <div style={{ fontSize: '1.05rem', fontWeight: '500', color: 'var(--text-color)' }}>{user.email || 'N/A'}</div>
           </div>
-          
+
           <div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Account Created</div>
             <div style={{ fontSize: '1.05rem', fontWeight: '500', color: 'var(--text-color)' }}>{formattedDate}</div>
@@ -125,10 +126,10 @@ export default function ProfilePage() {
         </section>
 
         {/* Update Section */}
-        <section style={{ 
-          background: 'var(--bg-card)', 
-          border: '1px solid var(--border-color)', 
-          borderRadius: '12px', 
+        <section style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
           padding: '28px',
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
           display: 'flex',
@@ -154,10 +155,10 @@ export default function ProfilePage() {
 
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-              AI Token Budget (USD / Credits)
+              AI Token Budget (Credits)
             </label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
               placeholder="e.g. 5000"
@@ -187,7 +188,7 @@ export default function ProfilePage() {
                 <span style={{ fontSize: showCurrentPassword ? '1rem' : '1.2rem', letterSpacing: showCurrentPassword ? 'normal' : '2px', color: 'var(--text-muted)' }}>
                   {showCurrentPassword ? '(Hidden for security)' : '••••••••'}
                 </span>
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   style={{
@@ -210,8 +211,8 @@ export default function ProfilePage() {
                 </button>
               </div>
             </div>
-            
-            <button 
+
+            <button
               type="button"
               onClick={() => {
                 setIsUpdatingPassword(!isUpdatingPassword);
@@ -238,11 +239,11 @@ export default function ProfilePage() {
           </div>
 
           {isUpdatingPassword && (
-            <div style={{ 
-              display: 'flex', 
-              gap: '16px', 
-              padding: '20px', 
-              background: 'rgba(0, 0, 0, 0.2)', 
+            <div style={{
+              display: 'flex',
+              gap: '16px',
+              padding: '20px',
+              background: 'rgba(0, 0, 0, 0.2)',
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               marginTop: '8px'
@@ -251,7 +252,7 @@ export default function ProfilePage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                   New Password
                 </label>
-                <input 
+                <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -270,7 +271,7 @@ export default function ProfilePage() {
                   onFocus={(e) => e.target.style.borderColor = 'var(--accent-emerald)'}
                   onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                 />
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
@@ -291,12 +292,12 @@ export default function ProfilePage() {
                   )}
                 </button>
               </div>
-              
+
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                   Confirm Password
                 </label>
-                <input 
+                <input
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -320,7 +321,7 @@ export default function ProfilePage() {
           )}
 
           <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button 
+            <button
               onClick={handleSave}
               disabled={isSaving}
               style={{
@@ -336,9 +337,9 @@ export default function ProfilePage() {
                 transition: 'opacity 0.2s ease, transform 0.1s ease',
                 boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
               }}
-              onMouseDown={(e) => { if(!isSaving) e.currentTarget.style.transform = 'scale(0.98)'; }}
-              onMouseUp={(e) => { if(!isSaving) e.currentTarget.style.transform = 'scale(1)'; }}
-              onMouseLeave={(e) => { if(!isSaving) e.currentTarget.style.transform = 'scale(1)'; }}
+              onMouseDown={(e) => { if (!isSaving) e.currentTarget.style.transform = 'scale(0.98)'; }}
+              onMouseUp={(e) => { if (!isSaving) e.currentTarget.style.transform = 'scale(1)'; }}
+              onMouseLeave={(e) => { if (!isSaving) e.currentTarget.style.transform = 'scale(1)'; }}
             >
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>

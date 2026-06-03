@@ -35,7 +35,16 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [allTimeCost, setAllTimeCost] = useState<number | null>(null);
+  const [allTimeAvgDailyCredits, setAllTimeAvgDailyCredits] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
+
+  /* ── Collapsible chart sections ── */
+  const [chartsExpanded, setChartsExpanded] = useState({
+    credits: false,
+    tokens: false,
+    distribution: false,
+    performance: false
+  });
 
   const fetchWithCache = useFetchWithCache();
 
@@ -56,7 +65,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     fetchModels();
   }, [token, targetUserId, logout, fetchWithCache, refreshKey]);
 
-  /* ── Fetch all-time cost once ── */
+  /* ── Fetch all-time cost + avg daily credits once ── */
   useEffect(() => {
     async function fetchAllTimeCost() {
       try {
@@ -65,7 +74,8 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
         const url = `/api/usage?${params.toString()}`;
         const json = await fetchWithCache(url);
         if (json && json.status === 'success') {
-          const cost = (json.data as UsageRecord[]).reduce((acc: number, curr: UsageRecord) => {
+          const records = json.data as UsageRecord[];
+          const cost = records.reduce((acc: number, curr: UsageRecord) => {
             const { totalCost: tCost } = calculateDetailedCosts(
               curr.model || 'Unknown',
               curr.input_tokens || 0,
@@ -77,6 +87,15 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             return acc + tCost;
           }, 0);
           setAllTimeCost(cost);
+
+          // Compute avg daily credits (absolute only) across all records
+          const absoluteRecords = records.filter(r => r.credits !== null && r.credits !== undefined);
+          if (absoluteRecords.length > 0) {
+            const distinctDays = new Set(absoluteRecords.map(r => r.date as string).filter(Boolean));
+            const totalAbsCredits = absoluteRecords.reduce((s, r) => s + (r.credits || 0), 0);
+            const avgDaily = distinctDays.size > 0 ? totalAbsCredits / distinctDays.size : 0;
+            setAllTimeAvgDailyCredits(+avgDaily.toFixed(3));
+          }
         }
       } catch (err) {
         console.error('Failed to fetch all-time cost', err);
@@ -159,6 +178,44 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     );
     return acc + tCost;
   }, 0);
+
+  /* ── Budget derivations from ai_token_budget ── */
+  const monthlyBudget = user?.ai_token_budget ?? null;
+  const weeklyBudget = monthlyBudget !== null ? +(monthlyBudget / 4).toFixed(2) : null;
+  const dailyBudget = monthlyBudget !== null ? +(monthlyBudget / 30).toFixed(2) : null;
+
+  // Compute credits used in current day, current week, current month
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const weekStart = (() => { const d = new Date(); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return d.toISOString().slice(0, 10); })();
+  const monthStart = todayStr.slice(0, 7) + '-01';
+
+  const creditField = (r: UsageRecord) => useRateCredits ? (r.credit_rate || 0) : (r.credits || 0);
+  const dailyCredits = data.filter(r => r.date >= todayStr).reduce((s, r) => s + creditField(r), 0);
+  const weeklyCredits = data.filter(r => r.date >= weekStart).reduce((s, r) => s + creditField(r), 0);
+  const monthlyCredits = data.filter(r => r.date >= monthStart).reduce((s, r) => s + creditField(r), 0);
+
+  const budgetPct = (used: number, budget: number) => Math.min((used / budget) * 100, 100);
+  const budgetColor = (pct: number) => {
+    if (pct >= 100) return '#ef4444'; // red
+    if (pct >= 90) return '#f97316';  // orange
+    if (pct >= 80) return '#eab308';  // yellow
+    return '#059669';                 // emerald
+  };
+
+  /* ── Forecast current month spend ── */
+  // Days elapsed so far this month (at least 1 to avoid divide-by-zero)
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  // Use all-time avg if available; otherwise fall back to current selection avg
+  const avgDailyForForecast = allTimeAvgDailyCredits;
+  const forecastMonthlyCredits = avgDailyForForecast !== null
+    ? +(avgDailyForForecast * daysInMonth).toFixed(2)
+    : null;
+  // Pacing: credits spent so far this month vs what we'd expect at this pace
+  const currentMonthAbsCredits = data
+    .filter(r => (r.date as string)?.startsWith(todayStr.slice(0, 7)))
+    .reduce((s, r) => s + (r.credits || 0), 0);
 
   const handleGoLive = async () => {
     if (!loading) setLoading(true);
@@ -390,37 +447,179 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             </div>
           </div>
 
+          {/* ── Insights Row: Budget + Avg + Forecast ── */}
+          {(!useRateCredits || monthlyBudget !== null) && (
+            <div className="insights-row">
+              {/* Budget Progress Card */}
+              {monthlyBudget !== null && (
+                <div className="budget-card insights-card">
+                  <div className="budget-card-header">
+                    <span className="budget-card-title">AI Credit Budget</span>
+                    <span className="budget-card-subtitle">{useRateCredits ? 'Rate Credits ×' : 'Credits'} · Monthly cap: <strong>{monthlyBudget}</strong></span>
+                  </div>
+                  <div className="budget-bars">
+                    {[{ label: 'Today', used: dailyCredits, cap: dailyBudget! },
+                    { label: 'This Week', used: weeklyCredits, cap: weeklyBudget! },
+                    { label: 'This Month', used: monthlyCredits, cap: monthlyBudget },
+                    ].map(({ label, used, cap }) => {
+                      const pct = budgetPct(used, cap);
+                      const col = budgetColor(pct);
+                      return (
+                        <div key={label} className="budget-bar-row">
+                          <div className="budget-bar-meta">
+                            <span className="budget-bar-period">{label}</span>
+                            <span className="budget-bar-numbers" style={{ color: col }}>
+                              {used.toFixed(1)}{useRateCredits ? '×' : ''} / {cap}{useRateCredits ? '×' : ''}
+                              <span className="budget-bar-pct">{pct.toFixed(0)}%</span>
+                            </span>
+                          </div>
+                          <div className="budget-track">
+                            <div className="budget-fill" style={{ width: `${pct}%`, background: col }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Forecast Card (credits only) */}
+              {!useRateCredits && forecastMonthlyCredits !== null && (
+                <div className="insight-stat-card insights-card">
+                  <div className="insight-stat-label">Forecast — {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                  <div className="insight-stat-value" style={{ color: '#c026d3' }}>
+                    {forecastMonthlyCredits.toFixed(1)}
+                    <span className="insight-stat-unit">credits</span>
+                  </div>
+                  <div className="insight-stat-sub">
+                    <div className="insight-stat-row">
+                      <span>Spent so far</span>
+                      <span style={{ color: '#c026d3', fontWeight: 700 }}>{currentMonthAbsCredits.toFixed(1)}</span>
+                    </div>
+                    <div className="insight-stat-row">
+                      <span>Day {dayOfMonth} of {daysInMonth}</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{((dayOfMonth / daysInMonth) * 100).toFixed(0)}%</span>
+                    </div>
+                    {monthlyBudget !== null && (
+                      <div className="insight-stat-row" style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                        <span>vs Budget</span>
+                        <span style={{ color: forecastMonthlyCredits > monthlyBudget ? '#ef4444' : '#059669', fontWeight: 700 }}>
+                          {forecastMonthlyCredits > monthlyBudget
+                            ? `${(forecastMonthlyCredits - monthlyBudget).toFixed(1)}`
+                            : `${(monthlyBudget - forecastMonthlyCredits).toFixed(1)}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="insight-stat-note">At current avg pace</div>
+                </div>
+              )}
+
+              {/* Avg Daily Spend Card (credits only) */}
+              {!useRateCredits && allTimeAvgDailyCredits !== null && (
+                <div className="insight-stat-card insights-card">
+                  <div className="insight-stat-label">Avg Daily Spend</div>
+                  <div className="insight-stat-value" style={{ color: '#0891b2' }}>
+                    {allTimeAvgDailyCredits.toFixed(2)}
+                    <span className="insight-stat-unit">credits</span>
+                  </div>
+                  <div className="insight-stat-sub">
+                    <div className="insight-stat-row">
+                      <span>Per week</span>
+                      <span style={{ color: '#0891b2', fontWeight: 700 }}>{(allTimeAvgDailyCredits * 7).toFixed(1)}</span>
+                    </div>
+                    <div className="insight-stat-row">
+                      <span>Per month</span>
+                      <span style={{ color: '#0891b2', fontWeight: 700 }}>{(allTimeAvgDailyCredits * 30).toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <div className="insight-stat-note">Based on all-time data</div>
+                </div>
+              )}
+
+
+            </div>
+          )}
+
           {/* Individual Records Table */}
           <RecordsTable data={data} useRateCredits={useRateCredits} />
 
-          {/* Charts Grid */}
-          <div className="charts-grid">
-            <CreditsLineChart
-              data={data}
-              models={activeModels}
-              useRateCredits={useRateCredits}
-            />
-            <TokensBarChart
-              data={data}
-              models={activeModels}
-            />
-          </div>
+          {/* ── Charts ── */}
+          <div className="chart-sections">
 
-          <div className="small-charts-grid">
-            <ModelPieChart
-              data={data}
-              models={activeModels}
-              useRateCredits={useRateCredits}
-            />
-            <UsageHeatmap data={data} />
-          </div>
+            {/* Credits over time */}
+            <div className="collapsible-section">
+              <button
+                className="collapsible-header"
+                onClick={() => setChartsExpanded(s => ({ ...s, credits: !s.credits }))}
+              >
+                <span>Credits Over Time</span>
+                <svg className={`collapsible-chevron${chartsExpanded.credits ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div className={`collapsible-body${chartsExpanded.credits ? ' expanded' : ''}`}>
+                <div className="collapsible-inner">
+                  <CreditsLineChart data={data} models={activeModels} useRateCredits={useRateCredits} />
+                </div>
+              </div>
+            </div>
 
-          {/* Performance Scatter – full width */}
-          <div style={{ marginTop: '24px' }}>
-            <PerformanceScatter
-              data={data}
-              models={activeModels}
-            />
+            {/* Token breakdown */}
+            <div className="collapsible-section">
+              <button
+                className="collapsible-header"
+                onClick={() => setChartsExpanded(s => ({ ...s, tokens: !s.tokens }))}
+              >
+                <span>Token Breakdown</span>
+                <svg className={`collapsible-chevron${chartsExpanded.tokens ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div className={`collapsible-body${chartsExpanded.tokens ? ' expanded' : ''}`}>
+                <div className="collapsible-inner">
+                  <TokensBarChart data={data} models={activeModels} />
+                </div>
+              </div>
+            </div>
+
+            {/* Model distribution + heatmap */}
+            <div className="collapsible-section">
+              <button
+                className="collapsible-header"
+                onClick={() => setChartsExpanded(s => ({ ...s, distribution: !s.distribution }))}
+              >
+                <span>Model Distribution &amp; Usage Heatmap</span>
+                <svg className={`collapsible-chevron${chartsExpanded.distribution ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div className={`collapsible-body${chartsExpanded.distribution ? ' expanded' : ''}`}>
+                <div className="collapsible-inner small-charts-grid">
+                  <ModelPieChart data={data} models={activeModels} useRateCredits={useRateCredits} />
+                  <UsageHeatmap data={data} />
+                </div>
+              </div>
+            </div>
+
+            {/* Performance scatter */}
+            <div className="collapsible-section">
+              <button
+                className="collapsible-header"
+                onClick={() => setChartsExpanded(s => ({ ...s, performance: !s.performance }))}
+              >
+                <span>Performance Analysis</span>
+                <svg className={`collapsible-chevron${chartsExpanded.performance ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div className={`collapsible-body${chartsExpanded.performance ? ' expanded' : ''}`}>
+                <div className="collapsible-inner">
+                  <PerformanceScatter data={data} models={activeModels} />
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

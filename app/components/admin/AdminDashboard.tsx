@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, User } from '@/components/auth/AuthContext';
+import { User, useAuth } from '@/components/auth/AuthContext';
 import { useFetchWithCache } from '@/hooks/useFetchWithCache';
+import { API_BASE } from '@/api';
 import './AdminDashboard.css';
 
 export default function AdminDashboard() {
@@ -38,7 +39,7 @@ export default function AdminDashboard() {
 
     const fetchUsers = async () => {
       try {
-        const json = await fetchWithCache('/api/admin/users');
+        const json = await fetchWithCache(`${API_BASE}/api/admin/users`);
         if (!json) return; // handled by hook
 
         if (json.status === 'success') {
@@ -73,7 +74,7 @@ export default function AdminDashboard() {
     setIsResetting(true);
     setResetMessage(null);
     try {
-      const res = await fetch(`/api/admin/users/${resetModalUser.id}/reset-password`, {
+      const res = await fetch(`${API_BASE}/api/admin/users/${resetModalUser.id}/reset-password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
+import { API_BASE } from '@/api';
 import './LoginPage.css';
 
 export default function LoginPage() {
@@ -22,7 +23,7 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const endpoint = isLogin ? `${API_BASE}/api/auth/login` : `${API_BASE}/api/auth/register`;
       const body = isLogin 
         ? { email, password }
         : { name, email, password };
@@ -53,7 +54,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/demo', {
+      const res = await fetch(`${API_BASE}/api/auth/demo`, {
         method: 'POST'
       });
       const json = await res.json();

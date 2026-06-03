@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useFetchWithCache } from '@/hooks/useFetchWithCache';
 import Dropdown from './Dropdown';
+import { API_BASE } from '@/api';
 import './Controls.css';
 import {
   formatDate,
@@ -73,13 +74,13 @@ export default function Controls({
     return !isPreset;
   });
 
-  const [monthOptions, setMonthOptions] = useState<{label: string, value: string}[]>([]);
+  const [monthOptions, setMonthOptions] = useState<{ label: string, value: string }[]>([]);
   const fetchWithCache = useFetchWithCache();
 
   useEffect(() => {
     async function fetchMonths() {
       try {
-        const url = targetUserId ? `/api/available-months?target_user_id=${targetUserId}` : '/api/available-months';
+        const url = targetUserId ? `${API_BASE}/api/available-months?target_user_id=${targetUserId}` : `${API_BASE}/api/available-months`;
         const json = await fetchWithCache(url);
         if (json && json.status === 'success' && json.data && json.data.length > 0) {
           const fetchedOptions = json.data.map((m: string) => {

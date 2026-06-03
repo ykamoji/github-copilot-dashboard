@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthContext';
+import { API_BASE } from '@/api';
 import '../globals.css';
 
 export default function ProfilePage() {
@@ -46,7 +47,7 @@ export default function ProfilePage() {
       if (budget !== '') payload.ai_token_budget = parseInt(budget, 10);
       else payload.ai_token_budget = null;
 
-      const res = await fetch('/api/user/profile', {
+      const res = await fetch(`${API_BASE}/api/user/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

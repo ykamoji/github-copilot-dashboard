@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useFetchWithCache } from '@/hooks/useFetchWithCache';
+import { API_BASE } from '@/api';
 import Controls, { DashboardFilters } from '@/components/controls/Controls';
 import CostModal from '@/components/tables/costModal/CostModal';
 import RecordsTable from '@/components/tables/recordsTable/RecordsTable';
@@ -44,7 +45,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   useEffect(() => {
     async function fetchModels() {
       try {
-        const url = targetUserId ? `/api/models?target_user_id=${targetUserId}` : '/api/models';
+        const url = targetUserId ? `${API_BASE}/api/models?target_user_id=${targetUserId}` : `${API_BASE}/api/models`;
         const json = await fetchWithCache(url);
         if (json?.status === 'success') {
           setAllModels(json.data);
@@ -63,7 +64,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       try {
         const params = new URLSearchParams();
         if (targetUserId) params.set('target_user_id', targetUserId);
-        const json = await fetchWithCache(`/api/usage?${params.toString()}`);
+        const json = await fetchWithCache(`${API_BASE}/api/usage?${params.toString()}`);
         if (json?.status === 'success') {
           const records = json.data as UsageRecord[];
 
@@ -107,7 +108,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       if (filters.groupBySession)  params.set('group_by_session', 'true');
       if (targetUserId)    params.set('target_user_id', targetUserId);
 
-      const json = await fetchWithCache(`/api/usage?${params.toString()}`);
+      const json = await fetchWithCache(`${API_BASE}/api/usage?${params.toString()}`);
       if (!json) return;
       if (json.status === 'success') {
         setData(json.data);
@@ -166,7 +167,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       if (key?.startsWith('dashboard_cache_')) { sessionStorage.removeItem(key); i--; }
     }
     try {
-      await fetch('/api/cache/clear', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      await fetch(`${API_BASE}/api/cache/clear`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
     } catch (e) {
       console.error('Failed to clear backend cache', e);
     }

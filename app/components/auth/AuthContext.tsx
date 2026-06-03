@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE } from '@/api';
 
 export interface User {
   user_id: string;
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const validateSession = async (savedToken: string) => {
     try {
-      const res = await fetch('/api/auth/session', {
+      const res = await fetch(`${API_BASE}/api/auth/session`, {
         headers: {
           'Authorization': `Bearer ${savedToken}`
         }
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     if (token) {
       try {
-        await fetch('/api/auth/logout', {
+        await fetch(`${API_BASE}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

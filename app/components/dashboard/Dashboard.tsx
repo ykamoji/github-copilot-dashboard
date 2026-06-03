@@ -2,17 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../auth/AuthContext';
-import Controls, { formatMonth } from '../controls/Controls';
-import CreditsLineChart from '../charts/CreditsLineChart';
-import TokensBarChart from '../charts/TokensBarChart';
-import CostModal from '../tables/CostModal';
-import PerformanceScatter from '../charts/PerformanceScatter';
-import ModelPieChart from '../charts/ModelPieChart';
-import UsageHeatmap from '../charts/UsageHeatmap';
-import RecordsTable from '../tables/RecordsTable';
-import { calculateCost } from '../../utils/pricing';
-import { UsageRecord, formatTokens } from '../../types';
+import { useAuth } from '@/components/auth/AuthContext';
+import Controls, { formatMonth } from '@/components/controls/Controls';
+import CreditsLineChart from '@/components/charts/CreditsLineChart';
+import TokensBarChart from '@/components/charts/TokensBarChart';
+import CostModal from '@/components/tables/costModal/CostModal';
+import PerformanceScatter from '@/components/charts/PerformanceScatter';
+import ModelPieChart from '@/components/charts/ModelPieChart';
+import UsageHeatmap from '@/components/charts/UsageHeatmap';
+import RecordsTable from '@/components/tables/recordsTable/RecordsTable';
+import { UsageRecord, formatTokens } from '@/types';
+import { calculateDetailedCosts } from '@/utils/pricing';
 
 export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const { user, token, logout } = useAuth();
@@ -124,7 +124,17 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const totalInput = data.reduce((acc, curr) => acc + (curr.input_tokens || 0), 0);
   const totalOutput = data.reduce((acc, curr) => acc + (curr.output_tokens || 0), 0);
   const totalThinking = data.reduce((acc, curr) => acc + (curr.thinking_tokens || 0), 0);
-  const totalCost = data.reduce((acc, curr) => acc + calculateCost(curr.model, curr.input_tokens || 0, curr.cached_tokens || 0, curr.output_tokens || 0, curr.thinking_tokens || 0), 0);
+  const totalCost = data.reduce((acc, curr) => {
+    const { totalCost: tCost } = calculateDetailedCosts(
+      curr.model || 'Unknown',
+      curr.input_tokens || 0,
+      curr.output_tokens || 0,
+      curr.thinking_tokens || 0,
+      curr.credits || 0,
+      useRateCredits
+    );
+    return acc + tCost;
+  }, 0);
 
   return (
     <div className="dashboard-shell">
@@ -134,11 +144,11 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
           <h1>Copilot Dashboard</h1>
           <p>AI Credit Usage Analytics {targetUserId ? '(Viewing User)' : ''}</p>
         </div>
-        
+
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {user.role === 'viewer' && (
-              <button 
+              <button
                 onClick={logout}
                 className="header-action-btn"
               >
@@ -150,14 +160,14 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
               <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{user.role}</div>
             </div>
             {user.role === 'admin' && !targetUserId && (
-              <button 
+              <button
                 onClick={() => router.push('/admin')}
                 className="header-action-btn"
               >
                 Admin Panel
               </button>
             )}
-            <button 
+            <button
               onClick={logout}
               className="signout-btn"
             >
@@ -275,7 +285,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
         </div>
       )}
 
-      <CostModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} data={data} />
+      <CostModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} data={data} useRateCredits={useRateCredits} />
     </div>
   );
 }

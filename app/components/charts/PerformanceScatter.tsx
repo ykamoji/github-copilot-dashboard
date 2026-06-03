@@ -5,8 +5,8 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ZAxis,
 } from 'recharts';
-import { getModelColor } from '../controls/Controls';
-import { formatTokens } from '../../types';
+import { getModelColor } from '@/components/controls/Controls';
+import { formatTokens } from '@/types';
 
 interface RecordType {
   model: string;

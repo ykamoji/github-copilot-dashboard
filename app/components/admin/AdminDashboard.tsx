@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, User } from '../auth/AuthContext';
+import { useAuth, User } from '@/components/auth/AuthContext';
 import './AdminDashboard.css';
 
 export default function AdminDashboard() {
-  const { token, user, logout } = useAuth();
+  const { token, user, logout, isLoading } = useAuth();
   const router = useRouter();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -15,10 +15,15 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (isLoading) return;
+
+    if (!user) {
+      router.push('/');
+      return;
+    }
 
     if (user.role !== 'admin') {
-      router.push('/');
+      router.push('/main');
       return;
     }
 
@@ -47,9 +52,9 @@ export default function AdminDashboard() {
     };
 
     fetchUsers();
-  }, [user, token, router, logout]);
+  }, [user, token, router, logout, isLoading]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (isLoading || !user || user.role !== 'admin') return null;
 
   const filteredUsers = users.filter(u =>
     (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -62,7 +67,7 @@ export default function AdminDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button
             className="admin-back-btn"
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/main')}
           >
             ← Back to My Dashboard
           </button>

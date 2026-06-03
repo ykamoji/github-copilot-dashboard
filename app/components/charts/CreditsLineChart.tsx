@@ -5,7 +5,7 @@ import {
   Tooltip, Legend, ResponsiveContainer,
   TooltipProps
 } from 'recharts';
-import { getModelColor } from '../controls/Controls';
+import { getModelColor } from '@/components/controls/Controls';
 
 interface RecordType {
   model: string;
@@ -61,7 +61,8 @@ export default function CreditsLineChart({ data, models, useRateCredits }: Credi
   const filtered = data.filter((r) => r[creditField] != null);
   const chartData = pivotByDate(filtered, creditField, models);
 
-  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
       <div className="custom-tooltip">

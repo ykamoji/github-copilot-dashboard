@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, Fragment, useEffect } from 'react';
-import { PRICING_MAP } from '../../utils/pricing';
-import { UsageRecord } from '../../types';
+import { PRICING_MAP, calculateDetailedCosts } from '@/utils/pricing';
+import { UsageRecord } from '@/types';
 import './CostModal.css';
 
 interface CostModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: UsageRecord[];
+  useRateCredits?: boolean;
 }
 
-export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
+export default function CostModal({ isOpen, onClose, data, useRateCredits = false }: CostModalProps) {
   const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
     cachedCost: number;
     outputCost: number;
     totalCost: number;
+    aiCredits: number;
   }
 
   interface ModelGroup {
@@ -42,11 +44,16 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
     cachedCost: number;
     outputCost: number;
     totalCost: number;
+    aiCredits: number;
     sessions: Record<string, SessionBreakdown>;
   }
 
   const modelGroups: Record<string, ModelGroup> = {};
   let grandTotal = 0;
+  let grandTotalCredits = 0;
+  let grandTotalInput = 0;
+  let grandTotalOutput = 0;
+  let grandTotalCache = 0;
 
   for (const r of data) {
     const sId = r.session_id || 'N/A';
@@ -59,6 +66,7 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
         cachedCost: 0,
         outputCost: 0,
         totalCost: 0,
+        aiCredits: 0,
         sessions: {},
       };
     }
@@ -72,17 +80,27 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
         cachedCost: 0,
         outputCost: 0,
         totalCost: 0,
+        aiCredits: 0,
       };
     }
 
     const session = group.sessions[sId];
 
+    const creditsToAdd = useRateCredits ? (r.credit_rate || 0) : (r.credits || 0);
+    session.aiCredits += creditsToAdd;
+    group.aiCredits += creditsToAdd;
+    grandTotalCredits += creditsToAdd;
+
     const pricing = PRICING_MAP[m];
     if (pricing) {
-      const iCost = ((r.input_tokens || 0) / 1_000_000) * pricing.input;
-      const cCost = ((r.cached_tokens || 0) / 1_000_000) * pricing.cachedInput;
-      const oCost = (((r.output_tokens || 0) + (r.thinking_tokens || 0)) / 1_000_000) * pricing.output;
-      const total = iCost + cCost + oCost;
+      const { inputCost: iCost, outputCost: oCost, cachedCost: cCost, totalCost: total } = calculateDetailedCosts(
+        m,
+        r.input_tokens || 0,
+        r.output_tokens || 0,
+        r.thinking_tokens || 0,
+        r.credits || 0,
+        useRateCredits
+      );
 
       // Update session cost
       session.inputCost += iCost;
@@ -96,7 +114,11 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
       group.outputCost += oCost;
       group.totalCost += total;
 
+      // Update grand totals
       grandTotal += total;
+      grandTotalInput += iCost;
+      grandTotalOutput += oCost;
+      grandTotalCache += cCost;
     }
   }
   // Sort models by total cost descending
@@ -114,9 +136,10 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
             <thead>
               <tr>
                 <th>Model / Session ID</th>
+                <th className="money">{useRateCredits ? 'Rate Credits' : 'AI Credits'}</th>
                 <th className="money">Input Cost</th>
-                <th className="money">Cached Cost</th>
                 <th className="money">Output Cost</th>
+                {!useRateCredits && <th className="money">Cached Cost</th>}
                 <th className="money">Total Cost</th>
               </tr>
             </thead>
@@ -141,9 +164,10 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
                         </span>
                         {group.model}
                       </td>
+                      <td className="money">{group.aiCredits.toFixed(2)}{useRateCredits ? 'x' : ''}</td>
                       <td className="money">${group.inputCost.toFixed(4)}</td>
-                      <td className="money">${group.cachedCost.toFixed(4)}</td>
                       <td className="money">${group.outputCost.toFixed(4)}</td>
+                      {!useRateCredits && <td className="money">${group.cachedCost.toFixed(4)}</td>}
                       <td className="money strong" style={{ color: 'var(--accent-emerald)' }}>
                         ${group.totalCost.toFixed(4)}
                       </td>
@@ -159,9 +183,10 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
                           <td style={{ paddingLeft: '32px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                             ↳ {session.sessionId.substring(0, 16)}...
                           </td>
+                          <td className="money" style={{ opacity: 0.75 }}>{session.aiCredits.toFixed(2)}{useRateCredits ? 'x' : ''}</td>
                           <td className="money" style={{ opacity: 0.75 }}>${session.inputCost.toFixed(4)}</td>
-                          <td className="money" style={{ opacity: 0.75 }}>${session.cachedCost.toFixed(4)}</td>
                           <td className="money" style={{ opacity: 0.75 }}>${session.outputCost.toFixed(4)}</td>
+                          {!useRateCredits && <td className="money" style={{ opacity: 0.75 }}>${session.cachedCost.toFixed(4)}</td>}
                           <td className="money" style={{ color: 'var(--accent-emerald)', opacity: 0.85 }}>
                             ${session.totalCost.toFixed(4)}
                           </td>
@@ -172,13 +197,17 @@ export default function CostModal({ isOpen, onClose, data }: CostModalProps) {
               })}
               {sortedModels.length > 0 && (
                 <tr className="total-row">
-                  <td colSpan={4} style={{ textAlign: 'right', paddingRight: '24px' }}>Grand Total</td>
-                  <td className="money" style={{ color: 'var(--accent-emerald)' }}>${grandTotal.toFixed(2)}</td>
+                  <td style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Grand Total</td>
+                  <td className="money">{grandTotalCredits.toFixed(2)}{useRateCredits ? 'x' : ''}</td>
+                  <td className="money">${grandTotalInput.toFixed(4)}</td>
+                  <td className="money">${grandTotalOutput.toFixed(4)}</td>
+                  {!useRateCredits && <td className="money">${grandTotalCache.toFixed(4)}</td>}
+                  <td className="money" style={{ color: 'var(--accent-emerald)' }}>${grandTotal.toFixed(4)}</td>
                 </tr>
               )}
               {sortedModels.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '48px 0' }}>No cost data available.</td>
+                  <td colSpan={useRateCredits ? 5 : 6} style={{ textAlign: 'center', padding: '48px 0' }}>No cost data available.</td>
                 </tr>
               )}
             </tbody>

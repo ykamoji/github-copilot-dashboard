@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/components/auth/AuthContext';
 import './LoginPage.css';
 
 export default function LoginPage() {

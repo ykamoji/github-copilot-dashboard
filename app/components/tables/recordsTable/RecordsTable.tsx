@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { UsageRecord } from '../../types';
+import { UsageRecord } from '@/types';
 import './RecordsTable.css';
 
 type SortKey = 'timestamp' | 'model' | 'credits' | 'time_taken' | 'input_tokens' | 'output_tokens' | 'thinking_tokens' | 'session_id';

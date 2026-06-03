@@ -4,8 +4,8 @@ import { useState } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { getModelColor } from '../controls/Controls';
-import { formatTokens } from '../../types';
+import { getModelColor } from '@/components/controls/Controls';
+import { formatTokens } from '@/types';
 
 interface RecordType {
   model: string;

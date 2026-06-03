@@ -41,7 +41,14 @@ export const PRICING_MAP: Record<string, ModelPricing> = {
   'Gemini 1.5 Pro': { input: 1.25, cachedInput: 0.125, output: 10.00 }, // Fallback estimate
 };
 
-export function calculateDetailedCosts(model: string, inputTokens: number, outputTokens: number, thinkingTokens: number, credits: number, useRateCredits: boolean) {
+export function calculateDetailedCosts(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  thinkingTokens: number,
+  credits: number,
+  useRateCredits: boolean,
+) {
   const pricing = PRICING_MAP[model];
   if (!pricing) {
     return { inputCost: 0, outputCost: 0, cachedCost: 0, totalCost: 0 };

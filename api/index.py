@@ -353,6 +353,34 @@ def models():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+
+@app.route("/api/available-months")
+@require_auth
+@cache.cached(query_string=True, key_prefix=make_user_cache_key)
+def available_months():
+    try:
+        collection = get_collection()
+        target_user_id = g.user_id
+        admin_target = request.args.get("target_user_id")
+        if g.role == "admin" and admin_target:
+            target_user_id = admin_target
+
+        pipeline = [
+            {"$match": {"user_id": target_user_id, "timestamp": {"$exists": True, "$ne": None, "$ne": ""}}},
+            {"$addFields": {"month": {"$substr": ["$timestamp", 0, 7]}}},
+            {"$group": {"_id": "$month"}},
+            {"$sort": {"_id": -1}}
+        ]
+        results = collection.aggregate(pipeline)
+        
+        import re
+        month_pattern = re.compile(r"^\d{4}-\d{2}$")
+        months = [r["_id"] for r in results if r["_id"] and month_pattern.match(str(r["_id"]))]
+        
+        return jsonify({"status": "success", "data": months}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/api/usage")
 @require_auth
 @cache.cached(query_string=True, key_prefix=make_user_cache_key)
@@ -507,6 +535,13 @@ def usage():
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/cache/clear", methods=["POST"])
+@require_auth
+def clear_cache():
+    cache.clear()
+    return jsonify({"status": "success", "message": "Cache cleared successfully"})
+
 
 
 if __name__ == "__main__":

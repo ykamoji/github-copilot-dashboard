@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useFetchWithCache } from '@/hooks/useFetchWithCache';
 import Dropdown from './Dropdown';
 import './Controls.css';
 import {
@@ -50,6 +51,8 @@ interface ControlsProps {
   onGroupBySessionChange: (group: boolean) => void;
   useRateCredits: boolean;
   onCreditTypeChange: (useRate: boolean) => void;
+  targetUserId?: string;
+  refreshKey?: number;
 }
 
 
@@ -66,6 +69,8 @@ export default function Controls({
   onGroupBySessionChange,
   useRateCredits,
   onCreditTypeChange,
+  targetUserId,
+  refreshKey,
 }: ControlsProps) {
   const [showAdvanced, setShowAdvanced] = useState(() => {
     const w = getThisWeek();
@@ -76,7 +81,34 @@ export default function Controls({
       (startDate === l.start && endDate === l.end);
     return !isPreset;
   });
-  const monthOptions = useMemo(() => getMonthOptions(), []);
+
+  const [monthOptions, setMonthOptions] = useState<{label: string, value: string}[]>([]);
+  const fetchWithCache = useFetchWithCache();
+
+  useEffect(() => {
+    async function fetchMonths() {
+      try {
+        const url = targetUserId ? `/api/available-months?target_user_id=${targetUserId}` : '/api/available-months';
+        const json = await fetchWithCache(url);
+        if (json && json.status === 'success' && json.data && json.data.length > 0) {
+          const fetchedOptions = json.data.map((m: string) => {
+            const d = parseLocalDate(m + '-01');
+            return {
+              label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+              value: m
+            };
+          });
+          setMonthOptions(fetchedOptions);
+        } else {
+          setMonthOptions(getMonthOptions());
+        }
+      } catch (err) {
+        console.error('Failed to fetch available months', err);
+        setMonthOptions(getMonthOptions());
+      }
+    }
+    fetchMonths();
+  }, [targetUserId, fetchWithCache, refreshKey]);
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>(() => {
     const start = new Date(startDate);

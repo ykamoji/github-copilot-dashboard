@@ -34,6 +34,8 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const [data, setData] = useState<UsageRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [allTimeCost, setAllTimeCost] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
   const fetchWithCache = useFetchWithCache();
 
@@ -52,11 +54,40 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       }
     }
     fetchModels();
-  }, [token, targetUserId, logout, fetchWithCache]);
+  }, [token, targetUserId, logout, fetchWithCache, refreshKey]);
+
+  /* ── Fetch all-time cost once ── */
+  useEffect(() => {
+    async function fetchAllTimeCost() {
+      try {
+        const params = new URLSearchParams();
+        if (targetUserId) params.set('target_user_id', targetUserId);
+        const url = `/api/usage?${params.toString()}`;
+        const json = await fetchWithCache(url);
+        if (json && json.status === 'success') {
+          const cost = (json.data as UsageRecord[]).reduce((acc: number, curr: UsageRecord) => {
+            const { totalCost: tCost } = calculateDetailedCosts(
+              curr.model || 'Unknown',
+              curr.input_tokens || 0,
+              curr.output_tokens || 0,
+              curr.thinking_tokens || 0,
+              curr.credits || 0,
+              !!curr.credit_rate,
+            );
+            return acc + tCost;
+          }, 0);
+          setAllTimeCost(cost);
+        }
+      } catch (err) {
+        console.error('Failed to fetch all-time cost', err);
+      }
+    }
+    fetchAllTimeCost();
+  }, [token, targetUserId, fetchWithCache, refreshKey]);
 
   /* ── Fetch usage data whenever filters change ── */
   const fetchUsage = useCallback(async () => {
-    setLoading(true);
+    if (!loading) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
@@ -83,7 +114,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedModels, allModels, startDate, endDate, groupBySession, fetchWithCache, targetUserId]);
+  }, [selectedModels, allModels, startDate, endDate, groupBySession, fetchWithCache, targetUserId, refreshKey]);
 
   useEffect(() => {
     if (allModels.length > 0) {
@@ -129,6 +160,32 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     return acc + tCost;
   }, 0);
 
+  const handleGoLive = async () => {
+    if (!loading) setLoading(true);
+    // Clear frontend cache
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('dashboard_cache_')) {
+        sessionStorage.removeItem(key);
+        i--; // Adjust index because we removed an item
+      }
+    }
+
+    // Clear backend cache
+    try {
+      await fetch('/api/cache/clear', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (e) {
+      console.error('Failed to clear backend cache', e);
+    }
+
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="dashboard-shell">
       {/* Header */}
@@ -140,6 +197,31 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
 
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button
+              onClick={handleGoLive}
+              disabled={loading}
+              className="header-action-btn"
+              style={{
+                color: loading ? 'var(--accent-fuchsia)' : 'var(--accent-emerald)',
+                borderColor: loading ? 'var(--accent-fuchsia)' : 'var(--accent-emerald)'
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="16" height="16"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ marginRight: '6px' }}
+                className={loading ? 'spin' : ''}
+              >
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              {loading ? 'Updating...' : 'Go Live'}
+            </button>
             {user.role === 'viewer' && (
               <button
                 onClick={logout}
@@ -227,6 +309,8 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
         onGroupBySessionChange={setGroupBySession}
         useRateCredits={useRateCredits}
         onCreditTypeChange={setUseRateCredits}
+        targetUserId={targetUserId}
+        refreshKey={refreshKey}
       />
 
       {/* Content */}
@@ -242,42 +326,66 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
 
       {!loading && !error && (
         <div>
-          {/* Summary Box */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-            <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
-              <div className="card-title" style={{ marginBottom: '8px' }}>Total {useRateCredits ? 'Rate Credits' : 'Absolute Credits'}</div>
-              <div className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: '800' }}>
-                {totalCredits.toFixed(2)}{useRateCredits ? 'x' : ''}
+          {/* ── Summary Box ── */}
+          <div className="summary-grid">
+            {/* Credits – Hero tile */}
+            <div className="summary-hero summary-credits">
+              <div className="summary-hero-label">
+                {useRateCredits ? 'AI Rate Credits' : 'AI Credits'}
+              </div>
+              <div className="summary-hero-value" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                {totalCredits.toFixed(2)}{useRateCredits ? '×' : ''}
+              </div>
+              <div className="summary-hero-sub">
+                {data.length} record{data.length !== 1 ? 's' : ''}
               </div>
             </div>
-            <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
-              <div className="card-title" style={{ marginBottom: '8px' }}>Total Input Tokens</div>
-              <div style={{ color: '#6366f1', fontSize: '2.5rem', fontWeight: '800' }}>
-                {formatTokens(totalInput)}
-              </div>
-            </div>
-            <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
-              <div className="card-title" style={{ marginBottom: '8px' }}>Total Output Tokens</div>
-              <div style={{ color: '#06b6d4', fontSize: '2.5rem', fontWeight: '800' }}>
-                {formatTokens(totalOutput)}
-              </div>
-            </div>
-            <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
-              <div className="card-title" style={{ marginBottom: '8px' }}>Total Thinking Tokens</div>
-              <div style={{ color: '#8b5cf6', fontSize: '2.5rem', fontWeight: '800' }}>
-                {formatTokens(totalThinking)}
-              </div>
-            </div>
+
+            {/* Cost – Hero tile */}
             <div
-              className="card"
-              style={{ padding: '24px', textAlign: 'center', cursor: 'pointer', border: '1px solid var(--accent-emerald)', transition: 'transform 0.2s, box-shadow 0.2s' }}
+              className="summary-hero summary-cost"
               onClick={() => setIsModalOpen(true)}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = 'var(--shadow-card-hover)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
+              style={{ cursor: 'pointer' }}
             >
-              <div className="card-title" style={{ marginBottom: '8px' }}>Total Cost (USD) <span style={{ fontSize: '0.7rem', color: 'var(--accent-emerald)', opacity: 0.8 }}>(Click for breakdown)</span></div>
-              <div style={{ color: 'var(--accent-emerald)', fontSize: '2.5rem', fontWeight: '800' }}>
+              <div className="summary-hero-label">
+                Estimated Cost (USD)
+                <span style={{ fontSize: '0.65rem', color: 'var(--accent-emerald)', marginLeft: '6px', opacity: 0.8 }}>Click for breakdown</span>
+              </div>
+              <div className="summary-hero-value" style={{ color: 'var(--accent-emerald)' }}>
                 ${totalCost.toFixed(2)}
+              </div>
+              {allTimeCost !== null && (
+                <div className="summary-hero-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Grand Total:</span>
+                  <span style={{ color: 'var(--accent-emerald)', fontWeight: '700', fontSize: '0.9rem' }}>${allTimeCost.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Tokens – Grouped compact tile */}
+            <div className="summary-tokens-group">
+              <div className="summary-token-row">
+                <div className="summary-token-dot" style={{ background: '#6366f1' }} />
+                <div className="summary-token-info">
+                  <span className="summary-token-label">Input Tokens</span>
+                  <span className="summary-token-value" style={{ color: '#6366f1' }}>{formatTokens(totalInput)}</span>
+                </div>
+              </div>
+              <div className="summary-token-divider" />
+              <div className="summary-token-row">
+                <div className="summary-token-dot" style={{ background: '#06b6d4' }} />
+                <div className="summary-token-info">
+                  <span className="summary-token-label">Output Tokens</span>
+                  <span className="summary-token-value" style={{ color: '#06b6d4' }}>{formatTokens(totalOutput)}</span>
+                </div>
+              </div>
+              <div className="summary-token-divider" />
+              <div className="summary-token-row">
+                <div className="summary-token-dot" style={{ background: '#8b5cf6' }} />
+                <div className="summary-token-info">
+                  <span className="summary-token-label">Thinking Tokens</span>
+                  <span className="summary-token-value" style={{ color: '#8b5cf6' }}>{formatTokens(totalThinking)}</span>
+                </div>
               </div>
             </div>
           </div>

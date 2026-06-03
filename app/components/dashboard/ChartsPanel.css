@@ -1,0 +1,25 @@
+.chart-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* ── Charts Grid ── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+.small-charts-grid {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(min(100%, 500px), 1fr));
+  gap: 24px;
+}
+
+.chart-container {
+  width: 100%;
+  min-height: 380px;
+}

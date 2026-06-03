@@ -1,62 +1,54 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useFetchWithCache } from '@/hooks/useFetchWithCache';
-import Controls from '@/components/controls/Controls';
-import { formatMonth } from '@/utils/controlHelpers';
-import CreditsLineChart from '@/components/charts/CreditsLineChart';
-import TokensBarChart from '@/components/charts/TokensBarChart';
+import Controls, { DashboardFilters } from '@/components/controls/Controls';
 import CostModal from '@/components/tables/costModal/CostModal';
-import PerformanceScatter from '@/components/charts/PerformanceScatter';
-import ModelPieChart from '@/components/charts/ModelPieChart';
-import UsageHeatmap from '@/components/charts/UsageHeatmap';
 import RecordsTable from '@/components/tables/recordsTable/RecordsTable';
-import { UsageRecord, formatTokens } from '@/types';
+import { UsageRecord } from '@/types';
 import { calculateDetailedCosts } from '@/utils/pricing';
+import { formatMonth } from '@/utils/controlHelpers';
+
+import DashboardHeader from './DashboardHeader';
+import SummaryBox from './SummaryBox';
+import InsightsRow from './InsightsRow';
+import ChartsPanel from './ChartsPanel';
 
 export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const { user, token, logout } = useAuth();
-  const router = useRouter();
 
-  /* ── State ── */
-  const [allModels, setAllModels] = useState<string[]>([]);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  /* ── Filter state ── */
   const { start: defaultStart, end: defaultEnd } = formatMonth();
-  const [startDate, setStartDate] = useState<string>(defaultStart);
-  const [endDate, setEndDate] = useState<string>(defaultEnd);
-  const [groupBySession, setGroupBySession] = useState<boolean>(false);
-  const [useRateCredits, setUseRateCredits] = useState<boolean>(false);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
-
-  const [data, setData] = useState<UsageRecord[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [allTimeCost, setAllTimeCost] = useState<number | null>(null);
-  const [allTimeAvgDailyCredits, setAllTimeAvgDailyCredits] = useState<number | null>(null);
-  const [refreshKey, setRefreshKey] = useState<number>(0);
-
-  /* ── Collapsible chart sections ── */
-  const [chartsExpanded, setChartsExpanded] = useState({
-    credits: false,
-    tokens: false,
-    distribution: false,
-    performance: false
+  const [allModels, setAllModels] = useState<string[]>([]);
+  const [filters, setFilters] = useState<DashboardFilters>({
+    selectedModels: [],
+    startDate: defaultStart,
+    endDate: defaultEnd,
+    groupBySession: false,
+    useRateCredits: false,
   });
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+  /* ── Data state ── */
+  const [data, setData]                   = useState<UsageRecord[]>([]);
+  const [loading, setLoading]             = useState<boolean>(true);
+  const [error, setError]                 = useState<string | null>(null);
+  const [allTimeCost, setAllTimeCost]     = useState<number | null>(null);
+  const [allTimeAvgDailyCredits, setAllTimeAvgDailyCredits] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey]       = useState<number>(0);
 
   const fetchWithCache = useFetchWithCache();
 
+  /* ── Fetch available models ── */
   useEffect(() => {
     async function fetchModels() {
       try {
         const url = targetUserId ? `/api/models?target_user_id=${targetUserId}` : '/api/models';
         const json = await fetchWithCache(url);
-
-        if (json && json.status === 'success') {
+        if (json?.status === 'success') {
           setAllModels(json.data);
-          setSelectedModels(json.data); // default: all selected
+          setFilters(prev => ({ ...prev, selectedModels: json.data }));
         }
       } catch (err) {
         console.error('Failed to fetch models', err);
@@ -65,16 +57,16 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     fetchModels();
   }, [token, targetUserId, logout, fetchWithCache, refreshKey]);
 
-  /* ── Fetch all-time cost + avg daily credits once ── */
+  /* ── Fetch all-time cost + avg daily credits ── */
   useEffect(() => {
     async function fetchAllTimeCost() {
       try {
         const params = new URLSearchParams();
         if (targetUserId) params.set('target_user_id', targetUserId);
-        const url = `/api/usage?${params.toString()}`;
-        const json = await fetchWithCache(url);
-        if (json && json.status === 'success') {
+        const json = await fetchWithCache(`/api/usage?${params.toString()}`);
+        if (json?.status === 'success') {
           const records = json.data as UsageRecord[];
+
           const cost = records.reduce((acc: number, curr: UsageRecord) => {
             const { totalCost: tCost } = calculateDetailedCosts(
               curr.model || 'Unknown',
@@ -88,13 +80,11 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
           }, 0);
           setAllTimeCost(cost);
 
-          // Compute avg daily credits (absolute only) across all records
-          const absoluteRecords = records.filter(r => r.credits !== null && r.credits !== undefined);
-          if (absoluteRecords.length > 0) {
-            const distinctDays = new Set(absoluteRecords.map(r => r.date as string).filter(Boolean));
-            const totalAbsCredits = absoluteRecords.reduce((s, r) => s + (r.credits || 0), 0);
-            const avgDaily = distinctDays.size > 0 ? totalAbsCredits / distinctDays.size : 0;
-            setAllTimeAvgDailyCredits(+avgDaily.toFixed(3));
+          const absRecords = records.filter(r => r.credits !== null && r.credits !== undefined);
+          if (absRecords.length > 0) {
+            const distinctDays = new Set(absRecords.map(r => r.date as string).filter(Boolean));
+            const total = absRecords.reduce((s, r) => s + (r.credits || 0), 0);
+            setAllTimeAvgDailyCredits(+(total / Math.max(distinctDays.size, 1)).toFixed(3));
           }
         }
       } catch (err) {
@@ -104,527 +94,146 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     fetchAllTimeCost();
   }, [token, targetUserId, fetchWithCache, refreshKey]);
 
-  /* ── Fetch usage data whenever filters change ── */
+  /* ── Fetch filtered usage data ── */
   const fetchUsage = useCallback(async () => {
     if (!loading) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
-      if (selectedModels.length > 0 && selectedModels.length < allModels.length) {
-        params.set('models', selectedModels.join(','));
-      }
-      if (startDate) params.set('start', startDate);
-      if (endDate) params.set('end', endDate);
-      if (groupBySession) params.set('group_by_session', 'true');
-      if (targetUserId) params.set('target_user_id', targetUserId);
+      if (filters.selectedModels.length > 0 && filters.selectedModels.length < allModels.length)
+        params.set('models', filters.selectedModels.join(','));
+      if (filters.startDate)       params.set('start', filters.startDate);
+      if (filters.endDate)         params.set('end', filters.endDate);
+      if (filters.groupBySession)  params.set('group_by_session', 'true');
+      if (targetUserId)    params.set('target_user_id', targetUserId);
 
-      const url = `/api/usage?${params.toString()}`;
-      const json = await fetchWithCache(url);
-
-      if (!json) return; // logged out or failed
-
+      const json = await fetchWithCache(`/api/usage?${params.toString()}`);
+      if (!json) return;
       if (json.status === 'success') {
         setData(json.data);
       } else {
         setError(json.message || 'Failed to load usage data');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to the backend API. Is the Flask server running?');
     } finally {
       setLoading(false);
     }
-  }, [selectedModels, allModels, startDate, endDate, groupBySession, fetchWithCache, targetUserId, refreshKey]);
+  }, [
+    filters.selectedModels,
+    filters.startDate,
+    filters.endDate,
+    filters.groupBySession,
+    allModels,
+    fetchWithCache,
+    targetUserId,
+    refreshKey
+  ]);
 
   useEffect(() => {
-    if (allModels.length > 0) {
-      fetchUsage();
-    }
+    if (allModels.length > 0) fetchUsage();
   }, [fetchUsage, allModels]);
 
-  /* ── Auto-toggle credits vs credit rates based on filtered data ── */
+  /* ── Auto-toggle credit type ── */
   useEffect(() => {
     if (data.length > 0) {
-      const hasCredits = data.some(
-        (r) => r.credits !== null && r.credits !== undefined
-      );
-      const hasCreditRates = data.some(
-        (r) => r.credit_rate !== null && r.credit_rate !== undefined
-      );
-      if (hasCredits && !hasCreditRates) {
-        setUseRateCredits(false);
-      } else if (hasCreditRates && !hasCredits) {
-        setUseRateCredits(true);
-      }
+      const hasCredits     = data.some(r => r.credits     !== null && r.credits     !== undefined);
+      const hasCreditRates = data.some(r => r.credit_rate !== null && r.credit_rate !== undefined);
+      setFilters(prev => {
+        let newUseRateCredits = prev.useRateCredits;
+        if (hasCredits && !hasCreditRates) newUseRateCredits = false;
+        else if (hasCreditRates && !hasCredits) newUseRateCredits = true;
+
+        if (newUseRateCredits !== prev.useRateCredits) {
+          return { ...prev, useRateCredits: newUseRateCredits };
+        }
+        return prev; // Return original object if no change, breaking any render cycles
+      });
     }
   }, [data]);
 
-  /* ── Derive which models to show in charts ── */
-  const activeModels =
-    selectedModels.length > 0 ? selectedModels : allModels;
+  /* ── Derived values ── */
+  const activeModels = filters.selectedModels.length > 0 ? filters.selectedModels : allModels;
 
-  /* ── Compute Totals ── */
-  const totalCredits = data.reduce((acc, curr) => acc + (useRateCredits ? (curr.credit_rate || 0) : (curr.credits || 0)), 0);
-  const totalInput = data.reduce((acc, curr) => acc + (curr.input_tokens || 0), 0);
-  const totalOutput = data.reduce((acc, curr) => acc + (curr.output_tokens || 0), 0);
-  const totalThinking = data.reduce((acc, curr) => acc + (curr.thinking_tokens || 0), 0);
-  const totalCost = data.reduce((acc, curr) => {
-    const { totalCost: tCost } = calculateDetailedCosts(
-      curr.model || 'Unknown',
-      curr.input_tokens || 0,
-      curr.output_tokens || 0,
-      curr.thinking_tokens || 0,
-      curr.credits || 0,
-      useRateCredits
-    );
-    return acc + tCost;
-  }, 0);
-
-  /* ── Budget derivations from ai_token_budget ── */
+  /* ── Budget ── */
   const monthlyBudget = user?.ai_token_budget ?? null;
-  const weeklyBudget = monthlyBudget !== null ? +(monthlyBudget / 4).toFixed(2) : null;
-  const dailyBudget = monthlyBudget !== null ? +(monthlyBudget / 30).toFixed(2) : null;
 
-  // Compute credits used in current day, current week, current month
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const weekStart = (() => { const d = new Date(); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return d.toISOString().slice(0, 10); })();
-  const monthStart = todayStr.slice(0, 7) + '-01';
-
-  const creditField = (r: UsageRecord) => useRateCredits ? (r.credit_rate || 0) : (r.credits || 0);
-  const dailyCredits = data.filter(r => r.date >= todayStr).reduce((s, r) => s + creditField(r), 0);
-  const weeklyCredits = data.filter(r => r.date >= weekStart).reduce((s, r) => s + creditField(r), 0);
-  const monthlyCredits = data.filter(r => r.date >= monthStart).reduce((s, r) => s + creditField(r), 0);
-
-  const budgetPct = (used: number, budget: number) => Math.min((used / budget) * 100, 100);
-  const budgetColor = (pct: number) => {
-    if (pct >= 100) return '#ef4444'; // red
-    if (pct >= 90) return '#f97316';  // orange
-    if (pct >= 80) return '#eab308';  // yellow
-    return '#059669';                 // emerald
-  };
-
-  /* ── Forecast current month spend ── */
-  // Days elapsed so far this month (at least 1 to avoid divide-by-zero)
-  const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  // Use all-time avg if available; otherwise fall back to current selection avg
-  const avgDailyForForecast = allTimeAvgDailyCredits;
-  const forecastMonthlyCredits = avgDailyForForecast !== null
-    ? +(avgDailyForForecast * daysInMonth).toFixed(2)
-    : null;
-  // Pacing: credits spent so far this month vs what we'd expect at this pace
-  const currentMonthAbsCredits = data
-    .filter(r => (r.date as string)?.startsWith(todayStr.slice(0, 7)))
-    .reduce((s, r) => s + (r.credits || 0), 0);
-
+  /* ── Actions ── */
   const handleGoLive = async () => {
     if (!loading) setLoading(true);
-    // Clear frontend cache
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.startsWith('dashboard_cache_')) {
-        sessionStorage.removeItem(key);
-        i--; // Adjust index because we removed an item
-      }
+      if (key?.startsWith('dashboard_cache_')) { sessionStorage.removeItem(key); i--; }
     }
-
-    // Clear backend cache
     try {
-      await fetch('/api/cache/clear', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await fetch('/api/cache/clear', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
     } catch (e) {
       console.error('Failed to clear backend cache', e);
     }
-
     setRefreshKey(prev => prev + 1);
   };
 
+  /* ── Render ── */
   return (
     <div className="dashboard-shell">
-      {/* Header */}
-      <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1>Copilot Dashboard</h1>
-          <p>AI Credit Usage Analytics {targetUserId ? '(Viewing User)' : ''}</p>
-        </div>
+      {user && (
+        <DashboardHeader
+          user={user}
+          loading={loading}
+          targetUserId={targetUserId}
+          onSync={handleGoLive}
+          onLogout={logout}
+        />
+      )}
 
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button
-              onClick={handleGoLive}
-              disabled={loading}
-              className="header-action-btn"
-              style={{
-                color: loading ? 'var(--accent-fuchsia)' : 'var(--accent-emerald)',
-                borderColor: loading ? 'var(--accent-fuchsia)' : 'var(--accent-emerald)'
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="16" height="16"
-                stroke="currentColor"
-                strokeWidth="2"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ marginRight: '6px' }}
-                className={loading ? 'spin' : ''}
-              >
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
-              {loading ? 'Updating...' : 'Go Live'}
-            </button>
-            {user.role === 'viewer' && (
-              <button
-                onClick={logout}
-                className="header-action-btn"
-              >
-                ← Back
-              </button>
-            )}
-            <div style={{ position: 'relative' }}>
-              <div
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                style={{ textAlign: 'right', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}
-              >
-                <div>
-                  <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>{user.name}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{user.role}</div>
-                </div>
-                <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>▼</span>
-              </div>
-
-              {isDropdownOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '8px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  minWidth: '150px',
-                  zIndex: 100,
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
-                }}>
-                  <button
-                    onClick={() => router.push('/profile')}
-                    className="header-action-btn"
-                    style={{ width: '100%', justifyContent: 'flex-start' }}
-                  >
-                    Profile
-                  </button>
-
-                  {user.role === 'admin' && !targetUserId && (
-                    <button
-                      onClick={() => router.push('/admin')}
-                      className="header-action-btn"
-                      style={{ width: '100%', justifyContent: 'flex-start' }}
-                    >
-                      Admin Panel
-                    </button>
-                  )}
-
-                  <button
-                    onClick={logout}
-                    className="signout-btn"
-                    style={{ width: '100%', justifyContent: 'flex-start' }}
-                  >
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                      <polyline points="16 17 21 12 16 7"></polyline>
-                      <line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* Controls */}
       <Controls
         models={allModels}
-        selectedModels={selectedModels}
-        onModelsChange={setSelectedModels}
-        startDate={startDate}
-        endDate={endDate}
-        onStartChange={setStartDate}
-        onEndChange={setEndDate}
-        groupBySession={groupBySession}
-        onGroupBySessionChange={setGroupBySession}
-        useRateCredits={useRateCredits}
-        onCreditTypeChange={setUseRateCredits}
+        filters={filters}
+        onFilterChange={(updates) => setFilters(prev => ({ ...prev, ...updates }))}
         targetUserId={targetUserId}
         refreshKey={refreshKey}
       />
 
-      {/* Content */}
       {loading && (
         <div className="card state-message">
           <span className="loading-text">Loading data…</span>
         </div>
       )}
 
-      {error && (
-        <div className="card state-message error">{error}</div>
-      )}
+      {error && <div className="card state-message error">{error}</div>}
 
       {!loading && !error && (
         <div>
-          {/* ── Summary Box ── */}
-          <div className="summary-grid">
-            {/* Credits – Hero tile */}
-            <div className="summary-hero summary-credits">
-              <div className="summary-hero-label">
-                {useRateCredits ? 'AI Rate Credits' : 'AI Credits'}
-              </div>
-              <div className="summary-hero-value" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                {totalCredits.toFixed(2)}{useRateCredits ? '×' : ''}
-              </div>
-              <div className="summary-hero-sub">
-                {data.length} record{data.length !== 1 ? 's' : ''}
-              </div>
-            </div>
+          <SummaryBox
+            data={data}
+            allTimeCost={allTimeCost}
+            useRateCredits={filters.useRateCredits}
+            onCostClick={() => setIsModalOpen(true)}
+          />
 
-            {/* Cost – Hero tile */}
-            <div
-              className="summary-hero summary-cost"
-              onClick={() => setIsModalOpen(true)}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className="summary-hero-label">
-                Estimated Cost (USD)
-                <span style={{ fontSize: '0.65rem', color: 'var(--accent-emerald)', marginLeft: '6px', opacity: 0.8 }}>Click for breakdown</span>
-              </div>
-              <div className="summary-hero-value" style={{ color: 'var(--accent-emerald)' }}>
-                ${totalCost.toFixed(2)}
-              </div>
-              {allTimeCost !== null && (
-                <div className="summary-hero-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Grand Total:</span>
-                  <span style={{ color: 'var(--accent-emerald)', fontWeight: '700', fontSize: '0.9rem' }}>${allTimeCost.toFixed(2)}</span>
-                </div>
-              )}
-            </div>
+          <InsightsRow
+            data={data}
+            useRateCredits={filters.useRateCredits}
+            monthlyBudget={monthlyBudget}
+            allTimeAvgDailyCredits={allTimeAvgDailyCredits}
+          />
 
-            {/* Tokens – Grouped compact tile */}
-            <div className="summary-tokens-group">
-              <div className="summary-token-row">
-                <div className="summary-token-dot" style={{ background: '#6366f1' }} />
-                <div className="summary-token-info">
-                  <span className="summary-token-label">Input Tokens</span>
-                  <span className="summary-token-value" style={{ color: '#6366f1' }}>{formatTokens(totalInput)}</span>
-                </div>
-              </div>
-              <div className="summary-token-divider" />
-              <div className="summary-token-row">
-                <div className="summary-token-dot" style={{ background: '#06b6d4' }} />
-                <div className="summary-token-info">
-                  <span className="summary-token-label">Output Tokens</span>
-                  <span className="summary-token-value" style={{ color: '#06b6d4' }}>{formatTokens(totalOutput)}</span>
-                </div>
-              </div>
-              <div className="summary-token-divider" />
-              <div className="summary-token-row">
-                <div className="summary-token-dot" style={{ background: '#8b5cf6' }} />
-                <div className="summary-token-info">
-                  <span className="summary-token-label">Thinking Tokens</span>
-                  <span className="summary-token-value" style={{ color: '#8b5cf6' }}>{formatTokens(totalThinking)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <RecordsTable data={data} useRateCredits={filters.useRateCredits} />
 
-          {/* ── Insights Row: Budget + Avg + Forecast ── */}
-          {(!useRateCredits || monthlyBudget !== null) && (
-            <div className="insights-row">
-              {/* Budget Progress Card */}
-              {monthlyBudget !== null && (
-                <div className="budget-card insights-card">
-                  <div className="budget-card-header">
-                    <span className="budget-card-title">AI Credit Budget</span>
-                    <span className="budget-card-subtitle">{useRateCredits ? 'Rate Credits ×' : 'Credits'} · Monthly cap: <strong>{monthlyBudget}</strong></span>
-                  </div>
-                  <div className="budget-bars">
-                    {[{ label: 'Today', used: dailyCredits, cap: dailyBudget! },
-                    { label: 'This Week', used: weeklyCredits, cap: weeklyBudget! },
-                    { label: 'This Month', used: monthlyCredits, cap: monthlyBudget },
-                    ].map(({ label, used, cap }) => {
-                      const pct = budgetPct(used, cap);
-                      const col = budgetColor(pct);
-                      return (
-                        <div key={label} className="budget-bar-row">
-                          <div className="budget-bar-meta">
-                            <span className="budget-bar-period">{label}</span>
-                            <span className="budget-bar-numbers" style={{ color: col }}>
-                              {used.toFixed(1)}{useRateCredits ? '×' : ''} / {cap}{useRateCredits ? '×' : ''}
-                              <span className="budget-bar-pct">{pct.toFixed(0)}%</span>
-                            </span>
-                          </div>
-                          <div className="budget-track">
-                            <div className="budget-fill" style={{ width: `${pct}%`, background: col }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Forecast Card (credits only) */}
-              {!useRateCredits && forecastMonthlyCredits !== null && (
-                <div className="insight-stat-card insights-card">
-                  <div className="insight-stat-label">Forecast — {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
-                  <div className="insight-stat-value" style={{ color: '#c026d3' }}>
-                    {forecastMonthlyCredits.toFixed(1)}
-                    <span className="insight-stat-unit">credits</span>
-                  </div>
-                  <div className="insight-stat-sub">
-                    <div className="insight-stat-row">
-                      <span>Spent so far</span>
-                      <span style={{ color: '#c026d3', fontWeight: 700 }}>{currentMonthAbsCredits.toFixed(1)}</span>
-                    </div>
-                    <div className="insight-stat-row">
-                      <span>Day {dayOfMonth} of {daysInMonth}</span>
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{((dayOfMonth / daysInMonth) * 100).toFixed(0)}%</span>
-                    </div>
-                    {monthlyBudget !== null && (
-                      <div className="insight-stat-row" style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
-                        <span>vs Budget</span>
-                        <span style={{ color: forecastMonthlyCredits > monthlyBudget ? '#ef4444' : '#059669', fontWeight: 700 }}>
-                          {forecastMonthlyCredits > monthlyBudget
-                            ? `${(forecastMonthlyCredits - monthlyBudget).toFixed(1)}`
-                            : `${(monthlyBudget - forecastMonthlyCredits).toFixed(1)}`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="insight-stat-note">At current avg pace</div>
-                </div>
-              )}
-
-              {/* Avg Daily Spend Card (credits only) */}
-              {!useRateCredits && allTimeAvgDailyCredits !== null && (
-                <div className="insight-stat-card insights-card">
-                  <div className="insight-stat-label">Avg Daily Spend</div>
-                  <div className="insight-stat-value" style={{ color: '#0891b2' }}>
-                    {allTimeAvgDailyCredits.toFixed(2)}
-                    <span className="insight-stat-unit">credits</span>
-                  </div>
-                  <div className="insight-stat-sub">
-                    <div className="insight-stat-row">
-                      <span>Per week</span>
-                      <span style={{ color: '#0891b2', fontWeight: 700 }}>{(allTimeAvgDailyCredits * 7).toFixed(1)}</span>
-                    </div>
-                    <div className="insight-stat-row">
-                      <span>Per month</span>
-                      <span style={{ color: '#0891b2', fontWeight: 700 }}>{(allTimeAvgDailyCredits * 30).toFixed(1)}</span>
-                    </div>
-                  </div>
-                  <div className="insight-stat-note">Based on all-time data</div>
-                </div>
-              )}
-
-
-            </div>
-          )}
-
-          {/* Individual Records Table */}
-          <RecordsTable data={data} useRateCredits={useRateCredits} />
-
-          {/* ── Charts ── */}
-          <div className="chart-sections">
-
-            {/* Credits over time */}
-            <div className="collapsible-section">
-              <button
-                className="collapsible-header"
-                onClick={() => setChartsExpanded(s => ({ ...s, credits: !s.credits }))}
-              >
-                <span>Credits Over Time</span>
-                <svg className={`collapsible-chevron${chartsExpanded.credits ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              <div className={`collapsible-body${chartsExpanded.credits ? ' expanded' : ''}`}>
-                <div className="collapsible-inner">
-                  <CreditsLineChart data={data} models={activeModels} useRateCredits={useRateCredits} />
-                </div>
-              </div>
-            </div>
-
-            {/* Token breakdown */}
-            <div className="collapsible-section">
-              <button
-                className="collapsible-header"
-                onClick={() => setChartsExpanded(s => ({ ...s, tokens: !s.tokens }))}
-              >
-                <span>Token Breakdown</span>
-                <svg className={`collapsible-chevron${chartsExpanded.tokens ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              <div className={`collapsible-body${chartsExpanded.tokens ? ' expanded' : ''}`}>
-                <div className="collapsible-inner">
-                  <TokensBarChart data={data} models={activeModels} />
-                </div>
-              </div>
-            </div>
-
-            {/* Model distribution + heatmap */}
-            <div className="collapsible-section">
-              <button
-                className="collapsible-header"
-                onClick={() => setChartsExpanded(s => ({ ...s, distribution: !s.distribution }))}
-              >
-                <span>Model Distribution &amp; Usage Heatmap</span>
-                <svg className={`collapsible-chevron${chartsExpanded.distribution ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              <div className={`collapsible-body${chartsExpanded.distribution ? ' expanded' : ''}`}>
-                <div className="collapsible-inner small-charts-grid">
-                  <ModelPieChart data={data} models={activeModels} useRateCredits={useRateCredits} />
-                  <UsageHeatmap data={data} />
-                </div>
-              </div>
-            </div>
-
-            {/* Performance scatter */}
-            <div className="collapsible-section">
-              <button
-                className="collapsible-header"
-                onClick={() => setChartsExpanded(s => ({ ...s, performance: !s.performance }))}
-              >
-                <span>Performance Analysis</span>
-                <svg className={`collapsible-chevron${chartsExpanded.performance ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              <div className={`collapsible-body${chartsExpanded.performance ? ' expanded' : ''}`}>
-                <div className="collapsible-inner">
-                  <PerformanceScatter data={data} models={activeModels} />
-                </div>
-              </div>
-            </div>
-
-          </div>
+          <ChartsPanel
+            data={data}
+            activeModels={activeModels}
+            useRateCredits={filters.useRateCredits}
+          />
         </div>
       )}
 
-      <CostModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} data={data} useRateCredits={useRateCredits} />
+      <CostModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        data={data}
+        useRateCredits={filters.useRateCredits}
+      />
     </div>
   );
 }

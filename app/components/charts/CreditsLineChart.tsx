@@ -3,9 +3,8 @@
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
-  TooltipProps
 } from 'recharts';
-import { getModelColor } from '@/components/controls/Controls';
+import { getModelColor } from '@/utils/controlHelpers';
 
 interface RecordType {
   model: string;

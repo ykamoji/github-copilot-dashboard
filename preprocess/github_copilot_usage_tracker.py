@@ -1,20 +1,20 @@
 import csv
 import json
-from datetime import datetime
 import re
+import os
+from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
 
-ROOT = Path(
-    "/Users/ykamoji/Library/Application Support/Code/User/workspaceStorage"
-)
+# Load configuration from .env file
+load_dotenv()
 
-OUTPUT = "/Users/ykamoji/Documents/copilot_credit_usage.csv"
-
+ROOT = os.getenv("STORAGE_PATH")
+OUTPUT = os.getenv("CSV_FILE")
 DETAILS_RE = re.compile(
     r"^(.*?)\s*•\s*([\d.]+)(?:x|\s*credits?)?$",
     re.IGNORECASE,
 )
-
 
 rows = []
 DEBUG = False

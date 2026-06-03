@@ -3,7 +3,6 @@ import csv
 import pymongo
 from dotenv import load_dotenv
 
-
 # Load configuration from .env file
 load_dotenv()
 

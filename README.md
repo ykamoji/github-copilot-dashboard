@@ -173,6 +173,7 @@ MONGO_URI=mongodb+srv://<username>:<password>@cluster0.example.mongodb.net/?retr
 MONGO_DB=copilot
 MONGO_COLLECTION=dashboard
 USER_ID=<your-uuid>
+STORAGE_PATH=<Path to /Code/User/workspaceStorage>
 CSV_FILE=copilot_credit_usage.csv
 ```
 

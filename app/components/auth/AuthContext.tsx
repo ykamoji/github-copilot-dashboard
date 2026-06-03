@@ -7,6 +7,8 @@ export interface User {
   name: string;
   email: string;
   role: 'user' | 'admin' | 'viewer';
+  created_at: string;
+  ai_token_budget?: number;
 }
 
 interface AuthContextType {

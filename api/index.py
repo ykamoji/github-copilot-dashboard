@@ -149,7 +149,9 @@ def register():
             "user_id": user_id,
             "name": name,
             "email": email,
-            "role": "user"
+            "role": "user",
+            "created_at": new_user["created_at"].isoformat() if new_user.get("created_at") else None,
+            "ai_token_budget": new_user.get("ai_token_budget")
         }
     })
 
@@ -181,7 +183,9 @@ def login():
             "user_id": user["user_id"],
             "name": user["name"],
             "email": user["email"],
-            "role": user.get("role", "user")
+            "role": user.get("role", "user"),
+            "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
+            "ai_token_budget": user.get("ai_token_budget")
         }
     })
 
@@ -214,7 +218,10 @@ def demo_login():
         "user": {
             "user_id": user["user_id"],
             "name": user["name"],
-            "role": user.get("role", "viewer")
+            "email": user.get("email"),
+            "role": user.get("role", "viewer"),
+            "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
+            "ai_token_budget": user.get("ai_token_budget")
         }
     })
 
@@ -236,8 +243,49 @@ def session_info():
         "user": {
             "user_id": user["user_id"],
             "name": user["name"],
-            "email": user["email"],
-            "role": user.get("role", "user")
+            "email": user.get("email"),
+            "role": user.get("role", "user"),
+            "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
+            "ai_token_budget": user.get("ai_token_budget")
+        }
+    })
+
+@app.route("/api/user/profile", methods=["PUT"])
+@require_auth
+def update_profile():
+    data = request.json
+    password = data.get("password")
+    ai_token_budget = data.get("ai_token_budget")
+
+    users = get_users_collection()
+    update_fields = {}
+
+    if password:
+        update_fields["password_hash"] = generate_password_hash(password)
+    
+    if ai_token_budget is None or ai_token_budget == "":
+        update_fields["ai_token_budget"] = None
+    elif ai_token_budget is not None:
+        try:
+            update_fields["ai_token_budget"] = int(ai_token_budget)
+        except ValueError:
+            return jsonify({"status": "error", "message": "Invalid ai_token_budget"}), 400
+
+    if not update_fields:
+        return jsonify({"status": "error", "message": "No fields to update"}), 400
+
+    users.update_one({"user_id": g.user_id}, {"$set": update_fields})
+    
+    user = users.find_one({"user_id": g.user_id})
+    return jsonify({
+        "status": "success",
+        "user": {
+            "user_id": user["user_id"],
+            "name": user["name"],
+            "email": user.get("email"),
+            "role": user.get("role", "user"),
+            "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
+            "ai_token_budget": user.get("ai_token_budget")
         }
     })
 
@@ -252,6 +300,34 @@ def admin_users():
         
     users = list(get_users_collection().find({}, {"_id": 0, "password_hash": 0}).sort("created_at", -1))
     return jsonify({"status": "success", "data": users})
+
+
+@app.route("/api/admin/users/<target_user_id>/reset-password", methods=["PUT"])
+@require_auth
+def admin_reset_password(target_user_id):
+    if g.role != "admin":
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
+        
+    data = request.json
+    new_password = data.get("new_password")
+    if not new_password:
+        return jsonify({"status": "error", "message": "New password is required"}), 400
+        
+    users_col = get_users_collection()
+    target_user = users_col.find_one({"user_id": target_user_id})
+    if not target_user:
+        return jsonify({"status": "error", "message": "User not found"}), 404
+        
+    password_hash = generate_password_hash(new_password)
+    users_col.update_one(
+        {"user_id": target_user_id},
+        {"$set": {"password_hash": password_hash}}
+    )
+    
+    # Optionally, clear existing sessions for this user so they must log in again
+    get_sessions_collection().delete_many({"user_id": target_user_id})
+    
+    return jsonify({"status": "success", "message": "Password reset successfully"})
 
 
 # --- Dashboard Endpoints ---

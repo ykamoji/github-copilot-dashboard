@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useFetchWithCache } from '@/hooks/useFetchWithCache';
 import Controls, { formatMonth } from '@/components/controls/Controls';
 import CreditsLineChart from '@/components/charts/CreditsLineChart';
 import TokensBarChart from '@/components/charts/TokensBarChart';
@@ -27,26 +28,21 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const [groupBySession, setGroupBySession] = useState<boolean>(false);
   const [useRateCredits, setUseRateCredits] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
   const [data, setData] = useState<UsageRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  /* ── Fetch model list on mount ── */
+  const fetchWithCache = useFetchWithCache();
+
   useEffect(() => {
     async function fetchModels() {
-      if (!token) return;
       try {
         const url = targetUserId ? `/api/models?target_user_id=${targetUserId}` : '/api/models';
-        const res = await fetch(url, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.status === 401) {
-          logout();
-          return;
-        }
-        const json = await res.json();
-        if (json.status === 'success') {
+        const json = await fetchWithCache(url);
+
+        if (json && json.status === 'success') {
           setAllModels(json.data);
           setSelectedModels(json.data); // default: all selected
         }
@@ -55,7 +51,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       }
     }
     fetchModels();
-  }, []);
+  }, [token, targetUserId, logout, fetchWithCache]);
 
   /* ── Fetch usage data whenever filters change ── */
   const fetchUsage = useCallback(async () => {
@@ -71,14 +67,10 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       if (groupBySession) params.set('group_by_session', 'true');
       if (targetUserId) params.set('target_user_id', targetUserId);
 
-      const res = await fetch(`/api/usage?${params.toString()}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.status === 401) {
-        logout();
-        return;
-      }
-      const json = await res.json();
+      const url = `/api/usage?${params.toString()}`;
+      const json = await fetchWithCache(url);
+
+      if (!json) return; // logged out or failed
 
       if (json.status === 'success') {
         setData(json.data);
@@ -90,7 +82,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedModels, allModels, startDate, endDate, groupBySession]);
+  }, [selectedModels, allModels, startDate, endDate, groupBySession, fetchWithCache, targetUserId]);
 
   useEffect(() => {
     if (allModels.length > 0) {
@@ -155,29 +147,68 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
                 ← Back
               </button>
             )}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>{user.name}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{user.role}</div>
-            </div>
-            {user.role === 'admin' && !targetUserId && (
-              <button
-                onClick={() => router.push('/admin')}
-                className="header-action-btn"
+            <div style={{ position: 'relative' }}>
+              <div
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                style={{ textAlign: 'right', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}
               >
-                Admin Panel
-              </button>
-            )}
-            <button
-              onClick={logout}
-              className="signout-btn"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              Sign Out
-            </button>
+                <div>
+                  <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>{user.name}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{user.role}</div>
+                </div>
+                <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>▼</span>
+              </div>
+
+              {isDropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '8px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  minWidth: '150px',
+                  zIndex: 100,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                }}>
+                  <button
+                    onClick={() => router.push('/profile')}
+                    className="header-action-btn"
+                    style={{ width: '100%', justifyContent: 'flex-start' }}
+                  >
+                    Profile
+                  </button>
+
+                  {user.role === 'admin' && !targetUserId && (
+                    <button
+                      onClick={() => router.push('/admin')}
+                      className="header-action-btn"
+                      style={{ width: '100%', justifyContent: 'flex-start' }}
+                    >
+                      Admin Panel
+                    </button>
+                  )}
+
+                  <button
+                    onClick={logout}
+                    className="signout-btn"
+                    style={{ width: '100%', justifyContent: 'flex-start' }}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                      <polyline points="16 17 21 12 16 7"></polyline>
+                      <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </header>

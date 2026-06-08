@@ -2,6 +2,10 @@
 
 A personal analytics dashboard for tracking and visualizing your GitHub Copilot AI credit usage across models, sessions, and time.
 
+## Visit Live App
+
+[Copilot Dashabord](https://github-copilot-dashboard.vercel.app)
+
 ## Why This Matters
 
 GitHub's recent changes to Copilot billing for **Business and Enterprise** users removed per-user visibility into credit consumption and cost breakdowns. Usage is now aggregated at the organization level, leaving individual developers with no way to see how many credits they're consuming, which models cost the most, or how their usage trends over time.

@@ -36,7 +36,7 @@ export const PRICING_MAP: Record<string, ModelPricing> = {
   // Google
   'Gemini 2.5 Pro': { input: 1.25, cachedInput: 0.125, output: 10.00 },
   'Gemini 3 Flash (Preview)': { input: 0.50, cachedInput: 0.05, output: 3.00 },
-  'Gemini 3.1 Pro': { input: 2.00, cachedInput: 0.20, output: 12.00 },
+  'Gemini 3.1 Pro (Preview)': { input: 2.00, cachedInput: 0.20, output: 12.00 },
   'Gemini 3.5 Flash': { input: 1.50, cachedInput: 0.15, output: 9.00 },
   'Gemini 1.5 Pro': { input: 1.25, cachedInput: 0.125, output: 10.00 }, // Fallback estimate
 };

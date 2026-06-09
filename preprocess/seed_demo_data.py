@@ -123,7 +123,7 @@ def generate_dummy_data():
             pricing = PRICING_MAP.get(model, {'input': 1.0, 'output': 5.0})
             input_cost = (input_tokens / 1_000_000.0) * pricing['input']
             output_cost = ((output_tokens + thinking_tokens) / 1_000_000.0) * pricing['output']
-            credits = round(input_cost + output_cost, 2)
+            credits = round(input_cost * 20 + output_cost * 20, 2)
             if credits < 0.01:
                 credits = 0.1
             

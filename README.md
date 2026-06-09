@@ -38,6 +38,8 @@ This dashboard fills that gap. It extracts your usage data directly from VS Code
 
 ## Architecture
 
+For a visual breakdown of all service layers, user flows, and data ingestion processes, see the [Service Architecture](service_architecture.md).
+
 ```text
 github-copilot-dashboard/
 ├── api/

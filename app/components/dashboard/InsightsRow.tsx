@@ -52,6 +52,7 @@ function BudgetBar({ label, used, cap }: BudgetBarProps) {
 /* ── InsightsRow ── */
 export interface InsightsRowProps {
   data: UsageRecord[];
+  cumulativeData: UsageRecord[];
   useRateCredits: boolean;
   monthlyBudget: number | null;          // from user.ai_token_budget
   allTimeAvgDailyCredits: number | null; // from all-time fetch in Dashboard
@@ -61,6 +62,7 @@ export interface InsightsRowProps {
 
 export default function InsightsRow({
   data,
+  cumulativeData,
   useRateCredits,
   monthlyBudget,
   allTimeAvgDailyCredits,
@@ -95,7 +97,7 @@ export default function InsightsRow({
 
   const dailyCredits = data.filter(r => r.date === refDateStr).reduce((s, r) => s + creditField(r), 0);
   const weeklyCredits = data.filter(r => r.date >= effectiveWeekStart && r.date <= refDateStr).reduce((s, r) => s + creditField(r), 0);
-  const monthlyCredits = data.filter(r => r.date >= monthStart && r.date <= refDateStr).reduce((s, r) => s + creditField(r), 0);
+  const monthlyCredits = cumulativeData.filter(r => r.date >= monthStart && r.date <= refDateStr).reduce((s, r) => s + creditField(r), 0);
 
   /* ── Avg daily for past-week view ── */
   const weekDays = new Set(data.filter(r => r.date >= effectiveWeekStart && r.date <= refDateStr).map(r => r.date)).size;
@@ -109,7 +111,7 @@ export default function InsightsRow({
     ? +(allTimeAvgDailyCredits * daysInMonth).toFixed(2)
     : null;
 
-  const currentMonthAbsCredits = data
+  const currentMonthAbsCredits = cumulativeData
     .filter(r => (r.date as string)?.startsWith(monthPrefix))
     .reduce((s, r) => s + (r.credits || 0), 0);
 

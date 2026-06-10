@@ -33,6 +33,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
 
   /* ── Data state ── */
   const [data, setData] = useState<UsageRecord[]>([]);
+  const [cumulativeData, setCumulativeData] = useState<UsageRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [allTimeCost, setAllTimeCost] = useState<number | null>(null);
@@ -112,6 +113,21 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       if (!json) return;
       if (json.status === 'success') {
         setData(json.data);
+
+        // Fetch cumulative monthly data if start is not monthStart
+        const startOfMonth = filters.startDate ? filters.startDate.slice(0, 7) + '-01' : '';
+        if (!startOfMonth || startOfMonth === filters.startDate) {
+          setCumulativeData(json.data);
+        } else {
+          const cumulativeParams = new URLSearchParams(params);
+          cumulativeParams.set('start', startOfMonth);
+          const cumJson = await fetchWithCache(`${API_BASE}/api/usage?${cumulativeParams.toString()}`);
+          if (cumJson?.status === 'success') {
+            setCumulativeData(cumJson.data);
+          } else {
+            setCumulativeData([]);
+          }
+        }
       } else {
         setError(json.message || 'Failed to load usage data');
       }
@@ -213,8 +229,9 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             onCostClick={() => setIsModalOpen(true)}
           />
 
-          <InsightsRow
+           <InsightsRow
             data={data}
+            cumulativeData={cumulativeData}
             useRateCredits={filters.useRateCredits}
             monthlyBudget={monthlyBudget}
             allTimeAvgDailyCredits={allTimeAvgDailyCredits}

@@ -1,6 +1,7 @@
 'use client';
 
 import { UsageRecord } from '@/types';
+import { getWeekLabel } from '@/utils/controlHelpers';
 import './InsightsRow.css';
 
 /* ── Shared pure helpers ── */
@@ -15,8 +16,8 @@ function budgetColor(pct: number): string {
   return '#059669';
 }
 
-function getWeekStart(): string {
-  const d = new Date();
+function getWeekStart(refDate: Date): string {
+  const d = new Date(refDate);
   const day = d.getDay();
   d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
   return d.toISOString().slice(0, 10);
@@ -54,6 +55,8 @@ export interface InsightsRowProps {
   useRateCredits: boolean;
   monthlyBudget: number | null;          // from user.ai_token_budget
   allTimeAvgDailyCredits: number | null; // from all-time fetch in Dashboard
+  startDate: string;                     // selected start date from Controls (YYYY-MM-DD)
+  endDate: string;                       // selected end date from Controls (YYYY-MM-DD)
 }
 
 export default function InsightsRow({
@@ -61,6 +64,8 @@ export default function InsightsRow({
   useRateCredits,
   monthlyBudget,
   allTimeAvgDailyCredits,
+  startDate,
+  endDate,
 }: InsightsRowProps) {
   const showRow = !useRateCredits || monthlyBudget !== null;
   if (!showRow) return null;
@@ -69,24 +74,37 @@ export default function InsightsRow({
   const weeklyBudget = monthlyBudget !== null ? +(monthlyBudget / 4).toFixed(2) : null;
   const dailyBudget = monthlyBudget !== null ? +(monthlyBudget / 30).toFixed(2) : null;
 
-  /* ── Date anchors ── */
+  /* ── Date anchors (derived from selected range) ── */
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
-  const weekStart = getWeekStart();
-  const monthPrefix = todayStr.slice(0, 7);      // "YYYY-MM"
+  // If today is within the selected range, anchor to today; otherwise use endDate
+  const rangeIncludesToday = startDate <= todayStr && todayStr <= endDate;
+  const refDate = rangeIncludesToday ? now : new Date(endDate + 'T12:00:00');
+  const refDateStr = rangeIncludesToday ? todayStr : endDate;
+  const weekStart = getWeekStart(refDate);
+  const monthPrefix = refDateStr.slice(0, 7);      // "YYYY-MM"
   const monthStart = monthPrefix + '-01';
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dayOfMonth = refDate.getDate();
+  const daysInMonth = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0).getDate();
 
   /* ── Credit aggregations ── */
   const creditField = (r: UsageRecord) =>
     useRateCredits ? (r.credit_rate || 0) : (r.credits || 0);
 
-  const dailyCredits = data.filter(r => r.date >= todayStr).reduce((s, r) => s + creditField(r), 0);
-  const weeklyCredits = data.filter(r => r.date >= weekStart).reduce((s, r) => s + creditField(r), 0);
-  const monthlyCredits = data.filter(r => r.date >= monthStart).reduce((s, r) => s + creditField(r), 0);
+  const effectiveWeekStart = weekStart > startDate ? weekStart : startDate;
+
+  const dailyCredits = data.filter(r => r.date === refDateStr).reduce((s, r) => s + creditField(r), 0);
+  const weeklyCredits = data.filter(r => r.date >= effectiveWeekStart && r.date <= refDateStr).reduce((s, r) => s + creditField(r), 0);
+  const monthlyCredits = data.filter(r => r.date >= monthStart && r.date <= refDateStr).reduce((s, r) => s + creditField(r), 0);
+
+  /* ── Avg daily for past-week view ── */
+  const weekDays = new Set(data.filter(r => r.date >= effectiveWeekStart && r.date <= refDateStr).map(r => r.date)).size;
+  const avgDailyCredits = weekDays > 0 ? weeklyCredits / weekDays : 0;
+  const dailyBarUsed = rangeIncludesToday ? dailyCredits : avgDailyCredits;
+  const dailyBarLabel = rangeIncludesToday ? 'Today' : 'Avg Daily';
 
   /* ── Forecast ── */
+  const isCurrentMonth = monthPrefix === now.toISOString().slice(0, 7);
   const forecastMonthlyCredits = allTimeAvgDailyCredits !== null
     ? +(allTimeAvgDailyCredits * daysInMonth).toFixed(2)
     : null;
@@ -109,9 +127,9 @@ export default function InsightsRow({
             </span>
           </div>
           <div className="budget-bars">
-            <BudgetBar label="Today" used={dailyCredits} cap={dailyBudget!} />
-            <BudgetBar label="This Week" used={weeklyCredits} cap={weeklyBudget!} />
-            <BudgetBar label="This Month" used={monthlyCredits} cap={monthlyBudget} />
+            <BudgetBar label={dailyBarLabel} used={dailyBarUsed} cap={dailyBudget!} />
+            <BudgetBar label={weekStart === getWeekStart(now) ? 'Current Week' : getWeekLabel(startDate, endDate)} used={weeklyCredits} cap={weeklyBudget!} />
+            <BudgetBar label={isCurrentMonth ? 'Current Month' : refDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} used={monthlyCredits} cap={monthlyBudget} />
           </div>
         </div>
       )}
@@ -120,7 +138,7 @@ export default function InsightsRow({
       {!useRateCredits && forecastMonthlyCredits !== null && (
         <div className="insight-stat-card insights-card">
           <div className="insight-stat-label">
-            Forecast — {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            Forecast — {refDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </div>
           <div className="insight-stat-value" style={{ color: '#c026d3' }}>
             {forecastMonthlyCredits.toFixed(1)}

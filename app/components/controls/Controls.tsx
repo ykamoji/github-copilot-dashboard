@@ -14,7 +14,8 @@ import {
   getMonthLabel,
   getWeekLabel,
   getMonthOptions,
-  getWeekOptionsForMonth
+  getWeekOptionsForMonth,
+  getWeekOptionsFromDates,
 } from '../../utils/controlHelpers';
 
 
@@ -75,31 +76,40 @@ export default function Controls({
   });
 
   const [monthOptions, setMonthOptions] = useState<{ label: string, value: string }[]>([]);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const fetchWithCache = useFetchWithCache();
 
   useEffect(() => {
-    async function fetchMonths() {
+    async function fetchDates() {
       try {
-        const url = targetUserId ? `${API_BASE}/api/available-months?target_user_id=${targetUserId}` : `${API_BASE}/api/available-months`;
+        const url = targetUserId ? `${API_BASE}/api/available-dates?target_user_id=${targetUserId}` : `${API_BASE}/api/available-dates`;
         const json = await fetchWithCache(url);
-        if (json && json.status === 'success' && json.data && json.data.length > 0) {
-          const fetchedOptions = json.data.map((m: string) => {
-            const d = parseLocalDate(m + '-01');
-            return {
-              label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-              value: m
-            };
-          });
-          setMonthOptions(fetchedOptions);
+        if (json && json.status === 'success' && json.data) {
+          const { months, dates } = json.data;
+          if (months && months.length > 0) {
+            const fetchedOptions = months.map((m: string) => {
+              const d = parseLocalDate(m + '-01');
+              return {
+                label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                value: m
+              };
+            });
+            setMonthOptions(fetchedOptions);
+          } else {
+            setMonthOptions(getMonthOptions());
+          }
+          setAvailableDates(dates || []);
         } else {
           setMonthOptions(getMonthOptions());
+          setAvailableDates([]);
         }
       } catch (err) {
-        console.error('Failed to fetch available months', err);
+        console.error('Failed to fetch available dates', err);
         setMonthOptions(getMonthOptions());
+        setAvailableDates([]);
       }
     }
-    fetchMonths();
+    fetchDates();
   }, [targetUserId, fetchWithCache, refreshKey]);
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>(() => {
@@ -195,7 +205,10 @@ export default function Controls({
         ? 'All Months'
         : `${selectedMonths.length} Months`;
 
-  const weekOptions = selectedMonths.length === 1 ? getWeekOptionsForMonth(selectedMonths[0]) : [];
+  const weekOptions = useMemo(() => {
+    const months = selectedMonths.length > 0 ? selectedMonths : monthOptions.map(o => o.value);
+    return getWeekOptionsFromDates(availableDates, months);
+  }, [selectedMonths, monthOptions, availableDates]);
 
   const thisWeek = getThisWeek();
   const thisMonth = getThisMonth();
@@ -264,7 +277,7 @@ export default function Controls({
             </div>
 
             {/* Week Navigation */}
-            <div className="button-group" style={{ opacity: selectedMonths.length === 1 ? 1 : 0.5, pointerEvents: selectedMonths.length === 1 ? 'auto' : 'none' }}>
+            <div className="button-group" style={{ opacity: weekOptions.length > 0 ? 1 : 0.5, pointerEvents: weekOptions.length > 0 ? 'auto' : 'none' }}>
               <Dropdown
                 mode="single"
                 variant="compact"

@@ -354,10 +354,10 @@ def models():
 
 
 
-@app.route("/api/available-months")
+@app.route("/api/available-dates")
 @require_auth
 @cache.cached(query_string=True, key_prefix=make_user_cache_key)
-def available_months():
+def available_dates():
     try:
         collection = get_collection()
         target_user_id = g.user_id
@@ -367,17 +367,26 @@ def available_months():
 
         pipeline = [
             {"$match": {"user_id": target_user_id, "timestamp": {"$exists": True, "$ne": None, "$ne": ""}}},
-            {"$addFields": {"month": {"$substr": ["$timestamp", 0, 7]}}},
-            {"$group": {"_id": "$month"}},
-            {"$sort": {"_id": -1}}
+            {"$addFields": {
+                "month": {"$substr": ["$timestamp", 0, 7]},
+                "date": {"$substr": ["$timestamp", 0, 10]},
+            }},
+            {"$facet": {
+                "months": [{"$group": {"_id": "$month"}}, {"$sort": {"_id": -1}}],
+                "dates": [{"$group": {"_id": "$date"}}, {"$sort": {"_id": -1}}],
+            }},
         ]
-        results = collection.aggregate(pipeline)
-        
+        results = list(collection.aggregate(pipeline))
+        facet = results[0] if results else {"months": [], "dates": []}
+
         import re
         month_pattern = re.compile(r"^\d{4}-\d{2}$")
-        months = [r["_id"] for r in results if r["_id"] and month_pattern.match(str(r["_id"]))]
-        
-        return jsonify({"status": "success", "data": months}), 200
+        date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+        months = [r["_id"] for r in facet["months"] if r["_id"] and month_pattern.match(str(r["_id"]))]
+        dates = [r["_id"] for r in facet["dates"] if r["_id"] and date_pattern.match(str(r["_id"]))]
+
+        return jsonify({"status": "success", "data": {"months": months, "dates": dates}}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

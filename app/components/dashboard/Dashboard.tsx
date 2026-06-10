@@ -32,12 +32,13 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   /* ── Data state ── */
-  const [data, setData]                   = useState<UsageRecord[]>([]);
-  const [loading, setLoading]             = useState<boolean>(true);
-  const [error, setError]                 = useState<string | null>(null);
-  const [allTimeCost, setAllTimeCost]     = useState<number | null>(null);
+  const [data, setData] = useState<UsageRecord[]>([]);
+  const [cumulativeData, setCumulativeData] = useState<UsageRecord[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [allTimeCost, setAllTimeCost] = useState<number | null>(null);
   const [allTimeAvgDailyCredits, setAllTimeAvgDailyCredits] = useState<number | null>(null);
-  const [refreshKey, setRefreshKey]       = useState<number>(0);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
   const fetchWithCache = useFetchWithCache();
 
@@ -103,15 +104,30 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
       const params = new URLSearchParams();
       if (filters.selectedModels.length > 0 && filters.selectedModels.length < allModels.length)
         params.set('models', filters.selectedModels.join(','));
-      if (filters.startDate)       params.set('start', filters.startDate);
-      if (filters.endDate)         params.set('end', filters.endDate);
-      if (filters.groupBySession)  params.set('group_by_session', 'true');
-      if (targetUserId)    params.set('target_user_id', targetUserId);
+      if (filters.startDate) params.set('start', filters.startDate);
+      if (filters.endDate) params.set('end', filters.endDate);
+      if (filters.groupBySession) params.set('group_by_session', 'true');
+      if (targetUserId) params.set('target_user_id', targetUserId);
 
       const json = await fetchWithCache(`${API_BASE}/api/usage?${params.toString()}`);
       if (!json) return;
       if (json.status === 'success') {
         setData(json.data);
+
+        // Fetch cumulative monthly data if start is not monthStart
+        const startOfMonth = filters.startDate ? filters.startDate.slice(0, 7) + '-01' : '';
+        if (!startOfMonth || startOfMonth === filters.startDate) {
+          setCumulativeData(json.data);
+        } else {
+          const cumulativeParams = new URLSearchParams(params);
+          cumulativeParams.set('start', startOfMonth);
+          const cumJson = await fetchWithCache(`${API_BASE}/api/usage?${cumulativeParams.toString()}`);
+          if (cumJson?.status === 'success') {
+            setCumulativeData(cumJson.data);
+          } else {
+            setCumulativeData([]);
+          }
+        }
       } else {
         setError(json.message || 'Failed to load usage data');
       }
@@ -132,13 +148,14 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   ]);
 
   useEffect(() => {
+    console.log('fetchUsage')
     if (allModels.length > 0) fetchUsage();
   }, [fetchUsage, allModels]);
 
   /* ── Auto-toggle credit type ── */
   useEffect(() => {
     if (data.length > 0) {
-      const hasCredits     = data.some(r => r.credits     !== null && r.credits     !== undefined);
+      const hasCredits = data.some(r => r.credits !== null && r.credits !== undefined);
       const hasCreditRates = data.some(r => r.credit_rate !== null && r.credit_rate !== undefined);
       setFilters(prev => {
         let newUseRateCredits = prev.useRateCredits;
@@ -212,11 +229,14 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             onCostClick={() => setIsModalOpen(true)}
           />
 
-          <InsightsRow
+           <InsightsRow
             data={data}
+            cumulativeData={cumulativeData}
             useRateCredits={filters.useRateCredits}
             monthlyBudget={monthlyBudget}
             allTimeAvgDailyCredits={allTimeAvgDailyCredits}
+            startDate={filters.startDate}
+            endDate={filters.endDate}
           />
 
           <RecordsTable data={data} useRateCredits={filters.useRateCredits} />

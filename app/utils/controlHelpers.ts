@@ -109,3 +109,40 @@ export const getWeekOptionsForMonth = (monthStr: string) => {
   }
   return opts;
 };
+
+/**
+ * Generate week options only for weeks that contain at least one date from `availableDates`.
+ * Scoped to the given months (or all months derived from the dates if none provided).
+ */
+export const getWeekOptionsFromDates = (
+  availableDates: string[],
+  months: string[],
+): { label: string; value: string }[] => {
+  if (availableDates.length === 0) return [];
+
+  const dateSet = new Set(availableDates);
+
+  // Generate all calendar weeks for the given months
+  const allWeeks: { label: string; value: string }[] = [];
+  for (const m of months) {
+    allWeeks.push(...getWeekOptionsForMonth(m));
+  }
+
+  // Deduplicate cross-month boundary weeks
+  const seen = new Set<string>();
+  const uniqueWeeks = allWeeks.filter(w => {
+    if (seen.has(w.value)) return false;
+    seen.add(w.value);
+    return true;
+  });
+
+  // Keep only weeks that overlap with at least one available date
+  return uniqueWeeks.filter(w => {
+    const [startStr, endStr] = w.value.split('|');
+    // Check if any available date falls within this week
+    for (const d of dateSet) {
+      if (d >= startStr && d <= endStr) return true;
+    }
+    return false;
+  });
+};

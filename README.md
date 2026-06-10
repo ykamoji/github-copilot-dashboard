@@ -95,6 +95,7 @@ github-copilot-dashboard/
 │       └── landing-bg.png
 ├── AGENTS.md                             # AI Assistant rules
 ├── README.md                             # Project documentation
+├── service_architecture.md               # Service architecture diagrams
 ├── .env.example                          # Env variables template
 ├── package.json                          # Node.js dependencies
 └── requirements.txt                      # Python dependencies

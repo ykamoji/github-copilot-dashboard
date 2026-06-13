@@ -113,8 +113,8 @@ export default function Controls({
   }, [targetUserId, fetchWithCache, refreshKey]);
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>(() => {
-    const start = new Date(filters.startDate);
-    const end = new Date(filters.endDate);
+    const start = parseLocalDate(filters.startDate);
+    const end = parseLocalDate(filters.endDate);
 
     const isStartFirst = start.getDate() === 1;
     const isEndLast = end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
@@ -156,8 +156,8 @@ export default function Controls({
     }
 
     // Dates changed to something outside the selected months — re-derive
-    const start = new Date(filters.startDate);
-    const end = new Date(filters.endDate);
+    const start = parseLocalDate(filters.startDate);
+    const end = parseLocalDate(filters.endDate);
     const isStartFirst = start.getDate() === 1;
     const isEndLast = end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
 

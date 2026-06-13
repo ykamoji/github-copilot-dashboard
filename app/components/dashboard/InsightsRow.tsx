@@ -1,7 +1,7 @@
 'use client';
 
 import { UsageRecord } from '@/types';
-import { getWeekLabel } from '@/utils/controlHelpers';
+import { formatDate, getWeekLabel } from '@/utils/controlHelpers';
 import './InsightsRow.css';
 
 /* ── Shared pure helpers ── */
@@ -20,7 +20,7 @@ function getWeekStart(refDate: Date): string {
   const d = new Date(refDate);
   const day = d.getDay();
   d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  return d.toISOString().slice(0, 10);
+  return formatDate(d);
 }
 
 /* ── BudgetBar ── */
@@ -78,7 +78,7 @@ export default function InsightsRow({
 
   /* ── Date anchors (derived from selected range) ── */
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = formatDate(now);
   // If today is within the selected range, anchor to today; otherwise use endDate
   const rangeIncludesToday = startDate <= todayStr && todayStr <= endDate;
   const refDate = rangeIncludesToday ? now : new Date(endDate + 'T12:00:00');
@@ -106,7 +106,7 @@ export default function InsightsRow({
   const dailyBarLabel = rangeIncludesToday ? 'Today' : 'Avg Daily';
 
   /* ── Forecast ── */
-  const isCurrentMonth = monthPrefix === now.toISOString().slice(0, 7);
+  const isCurrentMonth = monthPrefix === formatDate(now).slice(0, 7);
   const forecastMonthlyCredits = allTimeAvgDailyCredits !== null
     ? +(allTimeAvgDailyCredits * daysInMonth).toFixed(2)
     : null;

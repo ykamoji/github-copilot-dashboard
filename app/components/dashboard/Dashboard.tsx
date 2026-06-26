@@ -148,7 +148,6 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
   ]);
 
   useEffect(() => {
-    console.log('fetchUsage')
     if (allModels.length > 0) fetchUsage();
   }, [fetchUsage, allModels]);
 
@@ -229,7 +228,7 @@ export default function Dashboard({ targetUserId }: { targetUserId?: string }) {
             onCostClick={() => setIsModalOpen(true)}
           />
 
-           <InsightsRow
+          <InsightsRow
             data={data}
             cumulativeData={cumulativeData}
             useRateCredits={filters.useRateCredits}

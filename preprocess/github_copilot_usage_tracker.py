@@ -168,14 +168,18 @@ for workspace in ROOT.iterdir():
                 f"Failed reading {jsonl_file}: {e}"
             )
 
-        assert len(chat_analysis_models) == len(chat_analysis_sessions) == len(chat_analysis_timestamps) \
-               == len(chat_analysis_elapsed) == len(chat_analysis_input_tokens) == len(chat_analysis_output_tokens) \
-               == len(chat_analysis_thinking_tokens), \
-            print(f"Workspace {workspace.name} Session: {jsonl_file.name}\t "
-                f"Models :{len(chat_analysis_models)}, Sessions: {len(chat_analysis_sessions)}, "+
-                  f"TimeStamps: {len(chat_analysis_timestamps)}, Duration: {len(chat_analysis_elapsed)}, "+
-                  f"Input Tokens: {len(chat_analysis_input_tokens)}, "+
+        lengths = {
+            len(chat_analysis_models), len(chat_analysis_sessions), len(chat_analysis_timestamps),
+            len(chat_analysis_elapsed), len(chat_analysis_input_tokens), len(chat_analysis_output_tokens),
+            len(chat_analysis_thinking_tokens)
+        }
+        if len(lengths) > 1:
+            print(f"Mismatch in Workspace {workspace.name} Session: {jsonl_file.name}\t " \
+                  f"Models :{len(chat_analysis_models)}, Sessions: {len(chat_analysis_sessions)}, " \
+                  f"TimeStamps: {len(chat_analysis_timestamps)}, Duration: {len(chat_analysis_elapsed)}, " \
+                  f"Input Tokens: {len(chat_analysis_input_tokens)}, " \
                   f"Output Tokens: {len(chat_analysis_output_tokens)}, Thinking Tokens: {len(chat_analysis_thinking_tokens)}")
+            continue
 
         for i in range(len(chat_analysis_models)):
             record = {}
